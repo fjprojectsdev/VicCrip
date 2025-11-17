@@ -1,16 +1,15 @@
 // groupResponder.js
-import { processarSolicitacaoIPTV } from './iptvServiceMelhorado.js';
 import { getGroupStatus } from './groupStats.js';
 import { addBlockedWord, addBlockedLink, removeBlockedWord, removeBlockedLink, getCustomBlacklist } from './customBlacklist.js';
 import { askChatGPT } from './chatgpt.js';
+import { addAllowedGroup, listAllowedGroups, removeAllowedGroup } from './adminCommands.js';
 
-const TARGET_GROUP = '120363420952651026@g.us';
 const BOT_TRIGGER = 'bot';
 
 // Respostas pré-definidas
 const RESPONSES = {
     'oi': '👋 Olá! Como posso ajudar?',
-    'ajuda': '📋 Comandos disponíveis:\n- oi\n- ajuda\n- status\n- info\n- /fechar\n- /abrir\n- /fixar\n- /regras\n- /status\n- /lista\n- /comandos\n- /gpt\n- /testeiptv',
+    'ajuda': '📋 Comandos disponíveis:\n- oi\n- ajuda\n- status\n- info\n- /fechar\n- /abrir\n- /fixar\n- /regras\n- /status\n- /comandos',
     'status': '✅ Bot online e funcionando!',
     'info': '🤖 iMavyBot v1.0 - Bot simples para WhatsApp'
 };
@@ -51,67 +50,80 @@ export async function handleGroupMessages(sock, message) {
     }
     
     if (!isGroup && text.toLowerCase().includes('/comandos')) {
-        const comandosMsg = `🤖 *LISTA COMPLETA DE COMANDOS - iMavyBot* 🤖
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const comandosMsg = `🤖 LISTA COMPLETA DE COMANDOS 🤖
+━━━━━━━━━━━━━━━━
+👮 COMANDOS ADMINISTRATIVOS:
 
-👮 *COMANDOS ADMINISTRATIVOS:*
+* 🔒 /fechar - Fecha o grupo
+* 🔓 /abrir - Abre o grupo
+* 📌 /fixar [mensagem]
+* 🚫 /banir @membro [motivo]
+* 🚫 /bloqueartermo [palavra]
+* 🔗 /bloquearlink [dominio]
+* ✏️ /removertermo [palavra]
+* 🔓 /removerlink [dominio]
+* 📝 /listatermos
+* 🛠️ /adicionargrupo [Nome do Grupo | JID]
+* 🗑️ /removergrupo [Nome do Grupo | JID]
+* 📋 /listargrupos - Lista grupos e usuários permitidos
+━━━━━━━━━━━━━━━━
+📊 COMANDOS DE INFORMAÇÃO:
 
-• 🔒 */fechar* - Fecha o grupo
-• 🔓 */abrir* - Abre o grupo
-• 📌 */fixar [mensagem]* - Fixa mensagem importante
-• 🚫 */banir @membro [motivo]* - Remove e bane membro
-• 🚫 */bloqueartermo [palavra]* - Bloqueia palavra
-• 🔗 */bloquearlink [dominio]* - Bloqueia link/domínio
-• ✏️ */removertermo [palavra]* - Remove palavra bloqueada
-• 🔓 */removerlink [dominio]* - Remove link bloqueado
-• 📝 */listatermos* - Lista termos e links bloqueados
+* 📊 /status - Status e estatísticas do grupo
+* 📋 /regras - Exibe regras do grupo
+* 📱 /comandos - Lista todos os comandos
+━━━━━━━━━━━━━━━━
+🤖 COMANDOS DO BOT:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+* 👋 bot oi - Saudação
+* ❓ bot ajuda - Ajuda rápida
+* ✅ bot status - Status do bot
+* ℹ️ bot info - Informações do bot
+    
+* 🛠️ /adicionargrupo [Nome do Grupo | JID]
+* 🗑️ /removergrupo [Nome do Grupo | JID]
+* 📋 /listargrupos
+━━━━━━━━━━━━━━━━
+🔒 Sistema de Segurança Ativo
+* Anti-spam automático
+* Sistema de strikes (3 = expulsão)
+* Bloqueio de links e palavras proibidas
+* Notificação automática aos admins
+━━━━━━━━━━━━━━━━
+🤖 iMavyBot v2.0 - Protegendo seu grupo 24/7`;
 
-📊 *COMANDOS DE INFORMAÇÃO:*
-
-• 📊 */status* - Status e estatísticas do grupo
-• 📋 */regras* - Exibe regras do grupo
-• 📱 */comandos* - Lista todos os comandos
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📺 *COMANDOS IPTV:*
-
-• 📺 */lista* - Lista testes IPTV disponíveis
-• 📺 */1 a /10* - Gera teste IPTV específico
-• 🧪 */testeiptv* - Teste manual IPTV
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🤖 *COMANDOS DO BOT:*
-
-• 👋 *bot oi* - Saudação
-• ❓ *bot ajuda* - Ajuda rápida
-• ✅ *bot status* - Status do bot
-• ℹ️ *bot info* - Informações do bot
-• 🤖 */gpt [pergunta]* - Pergunte ao ChatGPT
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🧪 *COMANDOS DE TESTE:*
-
-• 🎉 */testar_boasvindas* - Testa mensagem de boas-vindas
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔒 *Sistema de Segurança Ativo*
-• Anti-spam automático
-• Sistema de strikes (3 = expulsão)
-• Bloqueio de links e palavras proibidas
-• Notificação automática aos admins
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🤖 *iMavyBot v2.0* - Protegendo seu grupo 24/7`;
-        
         await sock.sendMessage(senderId, { text: comandosMsg });
         return;
     }
 
-    if (!isGroup || groupId !== TARGET_GROUP) return;
+    // Permitir respostas em PV usando o dicionário RESPONSES
+    if (!isGroup) {
+        const textLower = (text || '').trim().toLowerCase();
+        if (textLower && RESPONSES[textLower]) {
+            await sock.sendMessage(senderId, { text: RESPONSES[textLower] });
+            return;
+        }
+        // Caso não seja um comando conhecido em PV, encaminhar para o handler geral (por exemplo GPT)
+        await handlePVUnknown(sock, message, textLower);
+        return;
+    }
+
+    async function handlePVUnknown(sock, message, textLower) {
+        // Se a mensagem começar com o trigger do bot, processar como comando local
+        if (textLower && (textLower.startsWith(BOT_TRIGGER) || textLower.startsWith('bot '))) {
+            // Extrair comando após o trigger
+            const cmd = textLower.replace(BOT_TRIGGER, '').trim();
+            if (cmd && RESPONSES[cmd]) {
+                await sock.sendMessage(senderId, { text: RESPONSES[cmd] });
+                return;
+            }
+            // fallback: enviar ajuda curta
+            await sock.sendMessage(senderId, { text: RESPONSES['ajuda'] });
+            return;
+        }
+        // Se não for reconhecido, ignore para evitar respostas indesejadas
+        return;
+    }
 
     text = '';
 
@@ -128,30 +140,10 @@ export async function handleGroupMessages(sock, message) {
 
     console.log(`💬 Mensagem de ${senderId}: "${text}"`);
 
-    // Comandos de teste IPTV /1 a /10
-    const comandosIPTV = ['/1', '/2', '/3', '/4', '/5', '/6', '/7', '/8', '/9', '/10'];
-    if (comandosIPTV.some(cmd => text.trim() === cmd)) {
-        try {
-            await sock.sendMessage(groupId, { text: '⏳ Gerando teste IPTV...' });
-            
-            const resultado = await processarSolicitacaoIPTV(senderId, senderId, text.trim());
-            
-            if (resultado.success) {
-                await sock.sendMessage(groupId, { text: resultado.mensagem });
-                console.log('✅ Teste IPTV enviado com sucesso');
-            } else {
-                await sock.sendMessage(groupId, { text: resultado.mensagem });
-                console.log('❌ Erro ao gerar teste IPTV');
-            }
-        } catch (error) {
-            await sock.sendMessage(groupId, { text: '❌ Erro ao processar solicitação. Tente novamente.' });
-            console.error('❌ Erro:', error);
-        }
-        return;
-    }
 
-    // Comandos /fechar, /abrir, /fixar, /regras, /lista, /status, /banir, /bloqueartermo, /bloquearlink, /removertermo, /removerlink, /listatermos, /comandos, /gpt e /testeiptv
-    if (text.toLowerCase().includes('/fechar') || text.toLowerCase().includes('/abrir') || text.toLowerCase().includes('/fixar') || text.toLowerCase().includes('/regras') || text.toLowerCase().includes('/lista') || text.toLowerCase().includes('/status') || text.toLowerCase().includes('/banir') || text.toLowerCase().includes('/bloqueartermo') || text.toLowerCase().includes('/bloquearlink') || text.toLowerCase().includes('/removertermo') || text.toLowerCase().includes('/removerlink') || text.toLowerCase().includes('/listatermos') || text.toLowerCase().includes('/comandos') || text.toLowerCase().includes('/gpt') || text.toLowerCase().includes('/testeiptv')) {
+
+    // Comandos /fechar, /abrir, /fixar, /regras, /status, /banir, /bloqueartermo, /bloquearlink, /removertermo, /removerlink, /listatermos, /comandos, /adicionargrupo, /removergrupo, /listargrupos
+    if (text.toLowerCase().includes('/fechar') || text.toLowerCase().includes('/abrir') || text.toLowerCase().includes('/fixar') || text.toLowerCase().includes('/regras') || text.toLowerCase().includes('/status') || text.toLowerCase().includes('/banir') || text.toLowerCase().includes('/bloqueartermo') || text.toLowerCase().includes('/bloquearlink') || text.toLowerCase().includes('/removertermo') || text.toLowerCase().includes('/removerlink') || text.toLowerCase().includes('/listatermos') || text.toLowerCase().includes('/comandos') || text.toLowerCase().includes('/adicionargrupo') || text.toLowerCase().includes('/removergrupo') || text.toLowerCase().includes('/listargrupos')) {
         try {
             if (text.toLowerCase().includes('/fechar')) {
                 await sock.groupSettingUpdate(groupId, 'announcement');
@@ -424,6 +416,57 @@ _Esta notificação foi enviada automaticamente aos administradores._
                 } else {
                     await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/bloqueartermo palavra`\n\nExemplo: `/bloqueartermo spam`' });
                 }
+                } else if (text.toLowerCase().startsWith('/adicionargrupo')) {
+                    // Formato esperado: /adicionargrupo Nome do Grupo
+                    let param = text.replace(/\/adicionargrupo/i, '').trim();
+                    // Se nenhum parâmetro e estamos no grupo, tentamos usar o subject do grupo
+                    if ((!param || param.length === 0) && isGroup) {
+                        try {
+                            const gm = await sock.groupMetadata(groupId);
+                            param = gm.subject || '';
+                        } catch (e) {
+                            console.warn('⚠️ Falha ao obter subject do grupo para /adicionargrupo:', e.message);
+                        }
+                    }
+
+                    const result = await addAllowedGroup(senderId, param);
+                    if (result.success) {
+                        // enviar confirmação privada ao remetente
+                        await sock.sendMessage(senderId, { text: result.message });
+                        // avisar no grupo que a operação foi concluída (sem expor quem executou)
+                        await sock.sendMessage(groupId, { text: `✅ O grupo foi adicionado à lista de funcionamento do bot.` });
+                    } else {
+                        // enviar erro/aviso ao remetente
+                        await sock.sendMessage(senderId, { text: result.message });
+                    }
+                } else if (text.toLowerCase().startsWith('/removergrupo')) {
+                    let param = text.replace(/\/removergrupo/i, '').trim();
+                    if ((!param || param.length === 0) && isGroup) {
+                        try {
+                            const gm = await sock.groupMetadata(groupId);
+                            param = gm.subject || '';
+                        } catch (e) {
+                            console.warn('⚠️ Falha ao obter subject do grupo para /removergrupo:', e.message);
+                        }
+                    }
+
+                    const result = await removeAllowedGroup(senderId, param);
+                    if (result.success) {
+                        await sock.sendMessage(senderId, { text: result.message });
+                        await sock.sendMessage(groupId, { text: `✅ O grupo foi removido da lista de funcionamento do bot.` });
+                    } else {
+                        await sock.sendMessage(senderId, { text: result.message });
+                    }
+                } else if (text.toLowerCase().startsWith('/listargrupos')) {
+                    // somente usuários autorizados podem listar
+                    const allowed = await listAllowedGroups();
+                    if (!allowed || allowed.length === 0) {
+                        await sock.sendMessage(senderId, { text: 'ℹ️ A lista de grupos permitidos está vazia.' });
+                    } else {
+                        const formatted = allowed.map((g, i) => `${i + 1}. ${g}`).join('\n');
+                        const reply = `📋 Grupos permitidos:\n\n${formatted}`;
+                        await sock.sendMessage(senderId, { text: reply });
+                    }
             } else if (text.toLowerCase().includes('/bloquearlink')) {
                 const link = text.replace(/\/bloquearlink/i, '').trim();
                 if (link) {
@@ -485,64 +528,44 @@ _Esta notificação foi enviada automaticamente aos administradores._
                     await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/bloquearlink dominio`\n\nExemplo: `/bloquearlink exemplo.com`' });
                 }
             } else if (text.toLowerCase().includes('/comandos')) {
-                const comandosMsg = `🤖 *LISTA COMPLETA DE COMANDOS - iMavyBot* 🤖
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                const comandosMsg = `🤖 LISTA COMPLETA DE COMANDOS 🤖
+━━━━━━━━━━━━━━━━
+👮 COMANDOS ADMINISTRATIVOS:
 
-👮 *COMANDOS ADMINISTRATIVOS:*
+* 🔒 /fechar - Fecha o grupo
+* 🔓 /abrir - Abre o grupo
+* 📌 /fixar [mensagem]
+* 🚫 /banir @membro [motivo]
+* 🚫 /bloqueartermo [palavra]
+* 🔗 /bloquearlink [dominio]
+* ✏️ /removertermo [palavra]
+* 🔓 /removerlink [dominio]
+* 📝 /listatermos
+━━━━━━━━━━━━━━━━
+📊 COMANDOS DE INFORMAÇÃO:
 
-• 🔒 */fechar* - Fecha o grupo
-• 🔓 */abrir* - Abre o grupo
-• 📌 */fixar [mensagem]* - Fixa mensagem importante
-• 🚫 */banir @membro [motivo]* - Remove e bane membro
-• 🚫 */bloqueartermo [palavra]* - Bloqueia palavra
-• 🔗 */bloquearlink [dominio]* - Bloqueia link/domínio
-• ✏️ */removertermo [palavra]* - Remove palavra bloqueada
-• 🔓 */removerlink [dominio]* - Remove link bloqueado
-• 📝 */listatermos* - Lista termos e links bloqueados
+* 📊 /status - Status e estatísticas do grupo
+* 📋 /regras - Exibe regras do grupo
+* 📱 /comandos - Lista todos os comandos
+━━━━━━━━━━━━━━━━
+🤖 COMANDOS DO BOT:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+* 👋 bot oi - Saudação
+* ❓ bot ajuda - Ajuda rápida
+* ✅ bot status - Status do bot
+* ℹ️ bot info - Informações do bot
+━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━
+🔒 Sistema de Segurança Ativo
+* Anti-spam automático
+* Sistema de strikes (3 = expulsão)
+* Bloqueio de links e palavras proibidas
+* Notificação automática aos admins
+━━━━━━━━━━━━━━━━
+🤖 iMavyBot v2.0 - Protegendo seu grupo 24/7`;
 
-📊 *COMANDOS DE INFORMAÇÃO:*
-
-• 📊 */status* - Status e estatísticas do grupo
-• 📋 */regras* - Exibe regras do grupo
-• 📱 */comandos* - Lista todos os comandos
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📺 *COMANDOS IPTV:*
-
-• 📺 */lista* - Lista testes IPTV disponíveis
-• 📺 */1 a /10* - Gera teste IPTV específico
-• 🧪 */testeiptv* - Teste manual IPTV
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🤖 *COMANDOS DO BOT:*
-
-• 👋 *bot oi* - Saudação
-• ❓ *bot ajuda* - Ajuda rápida
-• ✅ *bot status* - Status do bot
-• ℹ️ *bot info* - Informações do bot
-• 🤖 */gpt [pergunta]* - Pergunte ao ChatGPT
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🧪 *COMANDOS DE TESTE:*
-
-• 🎉 */testar_boasvindas* - Testa mensagem de boas-vindas
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔒 *Sistema de Segurança Ativo*
-• Anti-spam automático
-• Sistema de strikes (3 = expulsão)
-• Bloqueio de links e palavras proibidas
-• Notificação automática aos admins
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🤖 *iMavyBot v2.0* - Protegendo seu grupo 24/7`;
-                
                 await sock.sendMessage(groupId, { text: comandosMsg });
-            } else if (text.toLowerCase().includes('/removertermo')) {
+            } else if (text.toLowerCase().includes('/banir')) {
                 const termo = text.replace(/\/removertermo/i, '').trim();
                 if (termo) {
                     const result = removeBlockedWord(termo);
@@ -594,50 +617,12 @@ _Esta notificação foi enviada automaticamente aos administradores._
 📊 *Total:* ${totalWords + totalLinks} bloqueios personalizados`;
                 
                 await sock.sendMessage(groupId, { text: listaMsg });
-            } else if (text.toLowerCase().includes('/gpt')) {
-                const pergunta = text.replace(/\/gpt/i, '').trim();
-                if (pergunta) {
-                    const resposta = await askChatGPT(pergunta, senderId);
-                    await sock.sendMessage(groupId, { text: resposta });
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/gpt sua pergunta`\n\nExemplo: `/gpt O que é inteligência artificial?`' });
-                }
             } else if (text.toLowerCase().includes('/status')) {
                 console.log('📊 ➜ Comando /status executado');
                 const statusMessage = await getGroupStatus(sock, groupId);
                 console.log('📊 ➜ Mensagem de status gerada');
                 const msgStatus = await sock.sendMessage(groupId, { text: statusMessage });
                 console.log(msgStatus ? '✅ Status enviado com sucesso' : '❌ Falha ao enviar status');
-            } else if (text.toLowerCase().includes('/lista')) {
-                const listaMessage = `🎬 LISTA DE TESTES IPTV DISPONÍVEIS (6 HORAS)
-
-Olá! 👋
-Aqui estão os testes disponíveis no momento.
-Digite o número da opção (ou o comando / correspondente) para gerar seu teste automático:
-
-/1️⃣ TESTE IPTV 🔞 C/ ADULTOS
-/2️⃣ TESTE IPTV 🚫 S/ ADULTOS
-
-/3️⃣ TESTE ASSIST+ 🔞 C/ ADULTOS [ROKU - LG - SAMSUNG]
-/4️⃣ TESTE ASSIST+ 🚫 S/ ADULTOS [ROKU - LG - SAMSUNG]
-
-/5️⃣ TESTE BRASIL IPTV 🔞 C/ ADULTOS [ROKU - LG - SAMSUNG]
-/6️⃣ TESTE BRASIL IPTV 🚫 S/ ADULTOS [ROKU - LG - SAMSUNG]
-
-/7️⃣ TESTE FLEXPLAY 🔞 C/ ADULTOS [ROKU - LG - SAMSUNG]
-/8️⃣ TESTE FLEXPLAY 🚫 S/ ADULTOS [ROKU - LG - SAMSUNG]
-
-/9️⃣ TESTE ANDROID 🔞 C/ ADULTO [TV BOX - TV ANDROID - CELULAR]
-/1️⃣0️⃣ TESTE ANDROID 🚫 S/ ADULTO [TV BOX - TV ANDROID - CELULAR]
-
-🕒 Validade: 6 HORAS
-💡 Digite o comando (ex: /1) para gerar seu teste agora.
-📶 Servidores 100% estáveis e atualizados!`;
-                const msgLista = await sock.sendMessage(groupId, { text: listaMessage });
-                console.log(msgLista ? '✅ Lista enviada com sucesso' : '❌ Falha ao enviar lista');
-            } else if (text.toLowerCase().includes('/testeiptv')) {
-                // Este comando será processado pelo index.js
-                return;
             }
         } catch (err) {
             console.error('❌ Erro ao executar comando:', err);

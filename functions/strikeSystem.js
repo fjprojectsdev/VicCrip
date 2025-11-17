@@ -42,19 +42,19 @@ export async function applyPunishment(sock, groupId, userId, strikeCount) {
 
 @${userNumber}, você recebeu seu primeiro aviso por violar as regras do grupo.
 
-📌 *Strikes:* 1/3
-⚠️ Não viole regras
-🚫 *3 violações:* Expulsão automática do grupo
+> 📌 Strikes: 1/3
+> ⚠️ Não viole regras
+> 🚫 3 violações: Expulsão automática do grupo
 
-Por favor, respeite as regras!`;
+🛂 *Por favor, respeite as regras!*`;
 
             await sock.sendMessage(groupId, { 
                 text: avisoMsg,
                 mentions: [userId]
             });
-            
+
             console.log(`⚠️ Strike 1/3 aplicado para ${userNumber}`);
-            
+
         } else if (strikeCount === 2) {
             // 2ª violação: Aviso severo
             const avisoMsg = `🚨 *SEGUNDO AVISO - ÚLTIMA CHANCE* 🚨

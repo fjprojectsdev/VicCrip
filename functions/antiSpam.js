@@ -2,7 +2,7 @@
 import { getUserName } from './userInfo.js';
 import { checkCustomViolation } from './customBlacklist.js';
 
-const LINK_REGEX = /(https?:\/\/[^\s]+|www\.[^\s]+|\b[a-z0-9-]+\.(com|net|org|gg|me|xyz|io|br|top|bet|vip|app|site|online|click|link|cc|tv|live)\b)/gi;
+const LINK_REGEX = /(https?:\/\/[^\s]+|www\.[^\s]+|\b[a-z0-9-]+\.(com|net|org|gg|me|xyz|io|br|top|bet|vip|app|site|online|click|link|cc|tv|live)\b)/i;
 
 const BANNED_WORDS = [
     // Cassinos e apostas principais
@@ -45,53 +45,53 @@ const BANNED_WORDS = [
 
 const BANNED_PATTERNS = [
     // Variações de blaze
-    /b[l1i!|]a?[z2s5]e/gi,
-    /bl[a@4]z[e3]/gi,
+    /b[l1i!|]a?[z2s5]e/i,
+    /bl[a@4]z[e3]/i,
     
     // Variações de stake
-    /st[a@4]k[e3]/gi,
-    /s[t7][a@]ke/gi,
+    /st[a@4]k[e3]/i,
+    /s[t7][a@]ke/i,
     
     // Variações de betano
-    /b[e3][t7][a@4]n[o0]/gi,
-    /bet[a@]n[o0]/gi,
+    /b[e3][t7][a@4]n[o0]/i,
+    /bet[a@]n[o0]/i,
     
     // Variações de tigrinho
-    /t[i1!]gr[i1!]nh[o0]/gi,
-    /t[i1]gr[e3]/gi,
+    /t[i1!]gr[i1!]nh[o0]/i,
+    /t[i1]gr[e3]/i,
     
     // Variações de pixbet
-    /pi[x×][\s]?b[e3]t/gi,
-    /p[i1!]xb[e3]t/gi,
+    /pi[x×][\s]?b[e3]t/i,
+    /p[i1!]xb[e3]t/i,
     
     // Variações de cassino
-    /c[a@4]ss[i1!]n[o0]/gi,
-    /c[a@]s[i1]n[o0]/gi,
+    /c[a@4]ss[i1!]n[o0]/i,
+    /c[a@]s[i1]n[o0]/i,
     
     // Variações de fortune
-    /f[o0]rtun[e3]/gi,
-    /f[o0]rtu[n\u00f1]e/gi,
+    /f[o0]rtun[e3]/i,
+    /f[o0]rtu[n\u00f1]e/i,
     
     // Variações de bet
-    /b[e3][t7]/gi,
-    /\bb[e3]t\d+/gi,
+    /b[e3][t7]/i,
+    /\bb[e3]t\d+/i,
     
     // Aviator
-    /[a@4]v[i1!][a@4]t[o0]r/gi,
+    /[a@4]v[i1!][a@4]t[o0]r/i,
     
     // Mines
-    /m[i1!]n[e3]s/gi,
+    /m[i1!]n[e3]s/i,
     
     // Roleta
-    /r[o0]l[e3]t[a@4]/gi,
+    /r[o0]l[e3]t[a@4]/i,
     
     // VIP e sinais
-    /v[i1!]p/gi,
-    /s[i1!]na[i1!]s/gi,
+    /v[i1!]p/i,
+    /s[i1!]na[i1!]s/i,
     
     // Ganhar dinheiro
-    /ganh[e3][\s]?d[i1!]nh[e3][i1!]r[o0]/gi,
-    /lucr[o0][\s]?garant[i1!]d[o0]/gi
+    /ganh[e3][\s]?d[i1!]nh[e3][i1!]r[o0]/i,
+    /lucr[o0][\s]?garant[i1!]d[o0]/i
 ];
 
 export function checkViolation(text) {
@@ -157,22 +157,24 @@ export async function notifyAdmins(sock, groupId, violationData) {
             formattedNumber = `+${country} (${ddd}) ${part1}-${part2}`;
         }
         
-        const adminMessage = `*_─────🚨ALERTA DE VIOLAÇÃO 🚨─────_*
-*_─────🔒SISTEMA DE SEGURANÇA 🔒─────_*
-_O sistema detectou o envio de link ou palavra-chave proibida no grupo._
+        const adminMessage = `🚨 *ALERTA DE VIOLAÇÃO* 🚨
+🔒 *SISTEMA DE SEGURANÇA* 🔒
+━━━━━━━━━━━━━━━━
+_O sistema detectou o envio de link ou palavra-chave proibida no grupo._ 
 _A ação foi bloqueada automaticamente para manter a segurança._ 🔒
+━━━━━━━━━━━━━━━━
+👤 *Dados do usuário:* 👤
+> 🆔 *ID:* ${userId}
+> 📱 *Número:* ${formattedNumber}
+> 🕒 *Data/Hora:* ${dateTime}
+━━━━━━━━━━━━━━━━
+🚨 *MENSAGEM BLOQUEADA:* 🚨 
 
-*Dados do usuário:*
-* 🆔 _ID:_ ${userId}
-* 📱 _Número:_ ${formattedNumber}
-* 🕒 _Data/Hora:_ ${dateTime}
+${message}
 
-*Mensagem bloqueada:*
-
-${message} 🛑
-
-A mensagem foi removida automaticamente pelo sistema. 🗑️
-Se desejarem aplicar punições adicionais, verifiquem o histórico do grupo. 🔍⚖️`;
+━━━━━━━━━━━━━━━━
+_A mensagem foi removida automaticamente pelo sistema._ 🗑️  
+> Se desejarem aplicar punições adicionais, verifiquem o histórico do grupo. 🔍⚖️`;
 
         for (const adminId of admins) {
             await sock.sendMessage(adminId, { text: adminMessage });
@@ -186,16 +188,25 @@ Se desejarem aplicar punições adicionais, verifiquem o histórico do grupo. �
 
 export async function notifyUser(sock, userId, groupId = null, blockedMessage = '') {
     try {
-        const userMessage = `🚫 *Mensagem bloqueada!*
+        const userMessage = `🚨 *ALERTA DE VIOLAÇÃO* 🚨
+🔒 *SISTEMA DE SEGURANÇA* 🔒
+━━━━━━━━━━━━━━━━
+_Sua mensagem foi bloqueada por violar as regras do grupo._
+_A ação foi executada automaticamente para manter a segurança._ 🔒
+━━━━━━━━━━━━━━━━
+*Detalhes:*
+> 🆔 *ID Usuário:* ${userId}
+> 📱 *Grupo:* ${groupId || 'N/A'}
+━━━━━━━━━━━━━━━━
 
-Você tentou enviar um link ou termo que não é permitido neste grupo.
+🚨 *MENSAGEM BLOQUEADA:* 🚨 
 
-📌 *Motivo:* Violação das regras de divulgação
-📌 *Ação:* Sua mensagem foi apagada automaticamente pelo sistema.
+${blockedMessage}
 
-⚠️ Por favor, evite enviar links ou palavras relacionadas a apostas, golpes, anúncios ou qualquer conteúdo proibido.
+━━━━━━━━━━━━━━━━
 
-Repetidas violações podem resultar em medidas adicionais.`;
+_A mensagem foi removida automaticamente pelo sistema._ 🗑️
+> Repetidas violações podem resultar em medidas adicionais (strikes, expulsão). 🔍⚖️`;
 
         await sock.sendMessage(userId, { text: userMessage });
         console.log('✅ Usuário notificado');

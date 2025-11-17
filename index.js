@@ -6,7 +6,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendWelcomeMessage } from './functions/welcomeMessage.js';
-import { processarSolicitacaoIPTV } from './functions/iptvServiceMelhorado.js';
 import { checkViolation, notifyAdmins, notifyUser, logViolation } from './functions/antiSpam.js';
 import { addStrike, applyPunishment } from './functions/strikeSystem.js';
 import { incrementViolation, getGroupStatus } from './functions/groupStats.js';
@@ -14,6 +13,8 @@ import { incrementViolation, getGroupStatus } from './functions/groupStats.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import { handleGroupMessages } from './functions/groupResponder.js';
+import { isAuthorized } from './functions/adminCommands.js';
+import { getNumberFromJid, formatNumberInternational } from './functions/utils.js';
 import { scheduleGroupMessages } from './functions/scheduler.js';
 
 async function startBot() {
@@ -46,8 +47,6 @@ async function startBot() {
 
         if (connection === 'open') {
             console.log('✅ Conectado ao WhatsApp com sucesso!');
-            botStartTime = Date.now();
-            console.log('⏰ Ignorando mensagens anteriores a:', new Date(botStartTime).toLocaleString('pt-BR'));
             // Ativa o agendador (fechar e abrir grupo)
             scheduleGroupMessages(sock);
         }
@@ -65,25 +64,64 @@ async function startBot() {
         }
     });
 
-    let botStartTime = Date.now();
-
     // Evento de mensagens recebidas
     sock.ev.on('messages.upsert', async (msgUpsert) => {
         const messages = msgUpsert.messages;
 
         for (const message of messages) {
             if (!message.key.fromMe && message.message) {
-                const messageTime = message.messageTimestamp * 1000;
-                
-                // Ignorar mensagens antigas (anteriores ao bot iniciar)
-                if (messageTime < botStartTime) {
-                    console.log('⏭️ Mensagem antiga ignorada');
-                    continue;
-                }
+                    // Verifique se o bot deve atuar neste grupo (ALLOWED_GROUP_NAMES via .env e arquivo allowed_groups.json)
+                    const envAllowedList = (process.env.ALLOWED_GROUP_NAMES || '').split(',').map(s => s.trim()).filter(Boolean);
+                    const envAllowedUsers = (process.env.ALLOWED_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                    let fileAllowedList = [];
+                    let fileAllowedUsers = [];
+                    try {
+                        const allowedPath = path.join(__dirname, 'allowed_groups.json');
+                        if (fs.existsSync(allowedPath)) {
+                            const raw = fs.readFileSync(allowedPath, 'utf8');
+                            const parsed = JSON.parse(raw);
+                            if (Array.isArray(parsed)) fileAllowedList = parsed;
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Falha ao ler allowed_groups.json:', e.message);
+                    }
+
+                    try {
+                        const allowedUsersPath = path.join(__dirname, 'allowed_users.json');
+                        if (fs.existsSync(allowedUsersPath)) {
+                            const raw = fs.readFileSync(allowedUsersPath, 'utf8');
+                            const parsed = JSON.parse(raw);
+                            if (Array.isArray(parsed)) fileAllowedUsers = parsed;
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Falha ao ler allowed_users.json:', e.message);
+                    }
+
+                    const ALLOWED_GROUP_NAMES = new Set([...envAllowedList, ...fileAllowedList].map(s => s.trim()).filter(Boolean));
+                    const ALLOWED_USER_IDS = new Set([...envAllowedUsers, ...fileAllowedUsers].map(s => s.trim()).filter(Boolean));
+                // processar mensagens imediatamente
 
                 const senderId = message.key.participant || message.key.remoteJid;
-                const isGroup = message.key.remoteJid.endsWith('@g.us');
+                const isGroup = message.key.remoteJid && message.key.remoteJid.endsWith('@g.us');
                 const groupId = isGroup ? message.key.remoteJid : null;
+
+                // Se for mensagem de grupo, buscar metadados e validar pela lista de grupos autorizados
+                let groupSubject = null;
+                let groupMetadataForCheck = null;
+                if (isGroup) {
+                    try {
+                        groupMetadataForCheck = await sock.groupMetadata(groupId);
+                        groupSubject = groupMetadataForCheck.subject || '';
+                    } catch (e) {
+                        console.warn('⚠️ Falha ao obter metadata do grupo:', e.message);
+                    }
+
+                    // Verificar se o grupo está na lista de autorizados
+                    if (!groupSubject || !ALLOWED_GROUP_NAMES.has(groupSubject)) {
+                        console.log('⏭️ Grupo NÃO autorizado — ignorando:', groupSubject || groupId);
+                        continue;
+                    }
+                }
 
                 const contentType = getContentType(message.message);
                 const content = message.message[contentType];
@@ -91,27 +129,68 @@ async function startBot() {
                 console.log('\n╔════════════════════════════════════════════════════════════╗');
                 console.log('║           📨 NOVA MENSAGEM RECEBIDA                       ║');
                 console.log('╠════════════════════════════════════════════════════════════╣');
+                // Tentar obter JID real do participante quando for mensagem de grupo
+                let jidForNumber = senderId;
+                try {
+                    if (isGroup && groupMetadataForCheck && groupMetadataForCheck.participants) {
+                        const participant = groupMetadataForCheck.participants.find(p => p.id === senderId || p.id === (senderId));
+                        if (participant && participant.jid) {
+                            jidForNumber = participant.jid;
+                        }
+                    }
+                } catch (e) {
+                    // falha ao acessar participant, continuar com senderId
+                }
+
+                const senderNumber = getNumberFromJid(jidForNumber) || '';
+                const senderNumberIntl = senderNumber ? formatNumberInternational(senderNumber) : '';
                 console.log('║ 📋 Tipo:', contentType.padEnd(45), '║');
                 console.log('║ 👤 De:', senderId.substring(0, 45).padEnd(47), '║');
+                console.log('║ 📞 Número:', (senderNumberIntl || senderNumber).padEnd(43), '║');
                 if (groupId) console.log('║ 👥 Grupo:', groupId.substring(0, 42).padEnd(44), '║');
                 console.log('║ 💬 Texto:', (content?.text || 'N/A').substring(0, 43).padEnd(45), '║');
+
+                // Debug: se for PV e não conseguimos extrair um número razoável, logar informações para análise
+                if (!isGroup) {
+                    const numDigits = (senderNumber || '').replace(/\D/g, '').length;
+                    if (!senderNumber || numDigits < 8) {
+                        console.warn('⚠️ DEBUG: PV sem número extraído ou número curto. Exibindo chaves relevantes para inspeção.');
+                        console.warn('⚠️ DEBUG senderId:', senderId);
+                        try {
+                            console.warn('⚠️ DEBUG message.key:', JSON.stringify(message.key));
+                        } catch (e) {
+                            console.warn('⚠️ DEBUG: falha ao serializar message.key');
+                        }
+                    }
+                }
                 console.log('╚════════════════════════════════════════════════════════════╝\n');
 
                 const messageText = content?.text || content;
                 
-                // Ignorar anti-spam para comandos administrativos
+                // Ignorar anti-spam para comandos administrativos (inclui comandos de gerenciamento de autorização)
                 const isAdminCommand = messageText && typeof messageText === 'string' && (
                     messageText.toLowerCase().includes('/removertermo') ||
                     messageText.toLowerCase().includes('/removerlink') ||
                     messageText.toLowerCase().includes('/bloqueartermo') ||
                     messageText.toLowerCase().includes('/bloquearlink') ||
-                    messageText.toLowerCase().includes('/listatermos')
+                    messageText.toLowerCase().includes('/listatermos') ||
+                    messageText.toLowerCase().includes('/adicionargrupo') ||
+                    messageText.toLowerCase().includes('/removergrupo') ||
+                    messageText.toLowerCase().includes('/listargrupos')
                 );
-                
+
                 if (isAdminCommand) {
                     console.log('⚙️ Comando administrativo detectado, pulando anti-spam');
                     await handleGroupMessages(sock, message);
                     continue;
+                }
+
+                // Restringir respostas em privados para IDs autorizados/permitidos
+                    if (!isGroup) {
+                    if (ALLOWED_USER_IDS.size > 0 && !ALLOWED_USER_IDS.has(senderId) && !isAuthorized(senderId)) {
+                        console.log('⏭️ PV não autorizado — ignorando:', senderId);
+                        continue;
+                    }
                 }
 
                 // Verificar violações (anti-spam)
@@ -121,6 +200,24 @@ async function startBot() {
                 console.log('🔍 typeof:', typeof messageText);
                 
                 if (isGroup && typeof messageText === 'string') {
+                    // Verificar se o remetente é administrador — admins não devem ser barrados pelo sistema
+                    let isSenderAdmin = false;
+                    try {
+                        const groupMetadataForCheck = await sock.groupMetadata(groupId);
+                        const participant = groupMetadataForCheck.participants.find(p => p.id === senderId);
+                        if (participant && (participant.admin || participant.isAdmin)) {
+                            isSenderAdmin = true;
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Não foi possível obter metadata do grupo para checar admin:', e.message);
+                    }
+
+                    if (isSenderAdmin) {
+                        console.log('🔰 Remetente é administrador — pulando checagem de violação');
+                        await handleGroupMessages(sock, message);
+                        continue;
+                    }
+
                     console.log('🔍 Executando checkViolation...');
                     const violation = checkViolation(messageText);
                     console.log('🔍 Resultado:', violation);
@@ -180,28 +277,6 @@ async function startBot() {
                 }
 
                 await handleGroupMessages(sock, message);
-                
-                // Comandos para gerar teste IPTV
-                const tiposIPTV = ['/1', '/2', '/3', '/4', '/5', '/6', '/7', '/8', '/9', '/10'];
-                
-                if (isGroup && tiposIPTV.includes(messageText)) {
-                    console.log('\n📺 ═══════════════════════════════════════════════════════');
-                    console.log('📺 SOLICITAÇÃO DE TESTE IPTV');
-                    console.log('📺 Tipo:', messageText);
-                    console.log('📺 Usuário:', senderId);
-                    console.log('📺 ═══════════════════════════════════════════════════════\n');
-                    
-                    console.log('⏳ ➜ Enviando mensagem de aguarde...');
-                    const msgAguarde = await sock.sendMessage(groupId, { text: '⏳ Gerando seu teste IPTV, aguarde...' });
-                    console.log(msgAguarde ? '✅ ➜ Mensagem enviada' : '❌ ➜ Falha ao enviar');
-                    
-                    console.log('🔄 ➜ Processando automação IPTV...');
-                    const resultado = await processarSolicitacaoIPTV(senderId, '', messageText);
-                    
-                    console.log('📤 ➜ Enviando credenciais IPTV...');
-                    const msgTeste = await sock.sendMessage(groupId, { text: resultado.mensagem });
-                    console.log(msgTeste ? '✅ ➜ Teste IPTV enviado com sucesso\n' : '❌ ➜ Falha ao enviar teste IPTV\n');
-                }
                 
                 // Teste manual de boas-vindas
                 if (isGroup && messageText === '/testar_boasvindas') {
