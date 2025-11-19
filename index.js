@@ -2,6 +2,9 @@
 import 'dotenv/config';
 import makeWASocket, { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, getContentType } from "@whiskeysockets/baileys";
 import qrcode from "qrcode-terminal";
+import QRCode from "qrcode";
+import http from 'http';
+import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +19,9 @@ import { handleGroupMessages } from './functions/groupResponder.js';
 import { isAuthorized } from './functions/adminCommands.js';
 import { getNumberFromJid, formatNumberInternational } from './functions/utils.js';
 import { scheduleGroupMessages } from './functions/scheduler.js';
+
+// Variável para armazenar o servidor HTTP temporário
+let qrServer = null;
 
 async function startBot() {
     console.log("===============================================");
@@ -35,27 +41,114 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr && connection !== 'open') {
             console.log("\n╔════════════════════════════════════════════════════════════╗");
             console.log("║           🔐 AUTENTICAÇÃO WHATSAPP REQUERIDA 🔐              ║");
             console.log("╠════════════════════════════════════════════════════════════╣");
-            console.log("║ Escaneie este QR code no WhatsApp ou acesse o link abaixo ║");
+            console.log("║ Escaneie este QR code no WhatsApp Web                      ║");
             console.log("╚════════════════════════════════════════════════════════════╝\n");
             
-            // Gerar QR code
+            // Gerar QR code no terminal
             qrcode.generate(qr, { small: true });
             
-            // Exibir link de acesso
-            console.log("\n╔════════════════════════════════════════════════════════════╗");
-            console.log("║                    🔗 LINK DE ACESSO 🔗                     ║");
-            console.log("╠════════════════════════════════════════════════════════════╣");
-            console.log(`║ ${qr.padEnd(58)} ║`);
-            console.log("╚════════════════════════════════════════════════════════════╝\n");
-            console.log("💡 Dica: Você pode escanear o QR code acima ou copiar o link");
-            console.log("   e abrir no navegador para conectar o bot ao WhatsApp.\n");
+            // Criar servidor HTTP temporário para servir a imagem do QR code
+            try {
+                // Gerar imagem do QR code em base64
+                const qrImageDataUrl = await QRCode.toDataURL(qr, {
+                    width: 500,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    }
+                });
+                
+                // Extrair apenas os dados base64 (remover o prefixo data:image/png;base64,)
+                const qrImageBase64 = qrImageDataUrl.split(',')[1];
+                const qrImageBuffer = Buffer.from(qrImageBase64, 'base64');
+                
+                // Fechar servidor anterior se existir
+                if (qrServer) {
+                    qrServer.close();
+                }
+                
+                // Criar servidor HTTP temporário
+                const port = process.env.QR_SERVER_PORT || 3001;
+                qrServer = http.createServer((req, res) => {
+                    if (req.url === '/qr' || req.url === '/qr.png' || req.url === '/') {
+                        res.writeHead(200, {
+                            'Content-Type': 'image/png',
+                            'Content-Length': qrImageBuffer.length,
+                            'Cache-Control': 'no-cache'
+                        });
+                        res.end(qrImageBuffer);
+                    } else {
+                        res.writeHead(404);
+                        res.end('Not Found');
+                    }
+                });
+                
+                qrServer.listen(port, '0.0.0.0', () => {
+                    const localUrl = `http://localhost:${port}/qr.png`;
+                    
+                    // Obter IP da rede local
+                    const networkInterfaces = os.networkInterfaces();
+                    let networkIp = null;
+                    for (const interfaceName of Object.keys(networkInterfaces)) {
+                        for (const iface of networkInterfaces[interfaceName]) {
+                            if (iface.family === 'IPv4' && !iface.internal) {
+                                networkIp = iface.address;
+                                break;
+                            }
+                        }
+                        if (networkIp) break;
+                    }
+                    
+                    const networkUrl = networkIp ? `http://${networkIp}:${port}/qr.png` : null;
+                    
+                    console.log("\n╔════════════════════════════════════════════════════════════╗");
+                    console.log("║                    🔗 LINK DE ACESSO 🔗                     ║");
+                    console.log("╠════════════════════════════════════════════════════════════╣");
+                    console.log("║ Opção 1: Escaneie o QR code acima no WhatsApp             ║");
+                    console.log("║                                                             ║");
+                    console.log("║ Opção 2: Acesse o link abaixo para ver a imagem do QR:    ║");
+                    console.log(`║ ${localUrl.padEnd(58)} ║`);
+                    if (networkUrl) {
+                        console.log("║                                                             ║");
+                        console.log("║ Link alternativo (rede local):                             ║");
+                        const urlParts = networkUrl.length > 58 ? [
+                            networkUrl.substring(0, 58),
+                            networkUrl.substring(58)
+                        ] : [networkUrl];
+                        urlParts.forEach(part => {
+                            console.log(`║ ${part.padEnd(58)} ║`);
+                        });
+                    }
+                    console.log("╚════════════════════════════════════════════════════════════╝\n");
+                    console.log("💡 Dica: Abra o link no navegador para ver a imagem do QR code");
+                    console.log("   e escaneie com o WhatsApp Web.\n");
+                });
+                
+            } catch (error) {
+                console.error('❌ Erro ao criar servidor QR code:', error);
+                console.log("\n╔════════════════════════════════════════════════════════════╗");
+                console.log("║                    ⚠️  INFORMAÇÃO ⚠️                        ║");
+                console.log("╠════════════════════════════════════════════════════════════╣");
+                console.log("║ Por favor, escaneie o QR code acima no WhatsApp Web        ║");
+                console.log("║ O QR code contém dados de autenticação que precisam ser   ║");
+                console.log("║ escaneados diretamente pelo aplicativo WhatsApp.         ║");
+                console.log("╚════════════════════════════════════════════════════════════╝\n");
+            }
+        }
+        
+        // Fechar servidor quando conectar
+        if (connection === 'open' && qrServer) {
+            console.log('🔒 Fechando servidor QR code temporário...');
+            qrServer.close();
+            qrServer = null;
         }
 
         console.log('📡 Status da conexão:', connection);
