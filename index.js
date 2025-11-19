@@ -19,6 +19,7 @@ import { handleGroupMessages } from './functions/groupResponder.js';
 import { isAuthorized } from './functions/adminCommands.js';
 import { getNumberFromJid, formatNumberInternational } from './functions/utils.js';
 import { scheduleGroupMessages } from './functions/scheduler.js';
+import { ensureCoreConfigFiles } from './functions/configBootstrap.js';
 
 // Variável para armazenar o servidor HTTP temporário
 let qrServer = null;
@@ -27,6 +28,8 @@ async function startBot() {
     console.log("===============================================");
     console.log("🚀 Iniciando iMavyBot - Respostas Pré-Definidas");
     console.log("===============================================");
+
+    await ensureCoreConfigFiles();
 
 
 

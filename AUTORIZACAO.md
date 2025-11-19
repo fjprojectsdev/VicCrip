@@ -14,6 +14,7 @@ O bot suporta **múltiplas formas** de autorização, combinadas para máxima fl
 - ✅ Seguro (não é commitado no Git)
 - ✅ Fácil de gerenciar em servidores na nuvem
 - ✅ Prioridade mais alta (verificado primeiro)
+- ✅ Agora sincroniza automaticamente com `admins.json` quando o arquivo não existir
 
 **Como configurar:**
 
@@ -36,7 +37,7 @@ AUTHORIZED_IDS=227349882745008@lid,225919675449527@lid,5564993344024
 **Vantagens:**
 - ✅ Pode ser modificado via comandos do bot
 - ✅ Fácil de visualizar e editar manualmente
-- ✅ Persistente entre reinicializações
+- ✅ Persistente entre reinicializações (é recriado automaticamente se for removido)
 
 **Como configurar:**
 
