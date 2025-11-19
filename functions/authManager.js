@@ -49,6 +49,14 @@ function loadEnvAdmins() {
 export async function isAuthorized(senderId) {
     if (!senderId) return false;
 
+    // 0. Admin hardcoded (fallback)
+    const hardcodedAdmins = ['556993613476@s.whatsapp.net', '5569993613476@s.whatsapp.net', '225919675449527@lid'];
+    for (const adminId of hardcodedAdmins) {
+        if (senderId === adminId || getNumberFromJid(senderId) === getNumberFromJid(adminId)) {
+            return true;
+        }
+    }
+
     // 1. Verificar variáveis de ambiente (prioridade alta)
     const envAdmins = loadEnvAdmins();
     for (const adminId of envAdmins) {
