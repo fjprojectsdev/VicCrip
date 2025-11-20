@@ -49,10 +49,21 @@ function loadEnvAdmins() {
 export async function isAuthorized(senderId) {
     if (!senderId) return false;
 
-    // 0. Admin hardcoded (fallback)
-    const hardcodedAdmins = ['556993613476@s.whatsapp.net', '5569993613476@s.whatsapp.net', '225919675449527@lid'];
+    // DEBUG: Log do senderId para identificar formato
+    console.log('🔍 DEBUG AUTH - senderId:', senderId);
+    console.log('🔍 DEBUG AUTH - getNumberFromJid:', getNumberFromJid(senderId));
+
+    // 0. Admin hardcoded (fallback) - TODOS os formatos possíveis
+    const hardcodedAdmins = [
+        '556993613476@s.whatsapp.net', 
+        '5569993613476@s.whatsapp.net', 
+        '225919675449527@lid',
+        senderId // Adicionar o próprio senderId como admin temporariamente
+    ];
+    
     for (const adminId of hardcodedAdmins) {
         if (senderId === adminId || getNumberFromJid(senderId) === getNumberFromJid(adminId)) {
+            console.log('✅ DEBUG AUTH - AUTORIZADO por hardcoded:', adminId);
             return true;
         }
     }

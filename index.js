@@ -24,6 +24,9 @@ import { ensureCoreConfigFiles } from './functions/configBootstrap.js';
 // Variável para armazenar o servidor HTTP temporário
 let qrServer = null;
 
+// Timestamp de inicialização do bot para ignorar mensagens antigas
+const botStartTime = Date.now();
+
 async function startBot() {
     console.log("===============================================");
     console.log("🚀 Iniciando iMavyBot - Respostas Pré-Definidas");
@@ -39,7 +42,9 @@ async function startBot() {
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false
+        printQRInTerminal: false,
+        syncFullHistory: false,
+        markOnlineOnConnect: false
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -211,7 +216,14 @@ async function startBot() {
 
         for (const message of messages) {
             if (!message.key.fromMe && message.message) {
-                    // Verifique se o bot deve atuar neste grupo (ALLOWED_GROUP_NAMES via .env e arquivo allowed_groups.json)
+                // Ignorar mensagens antigas (enviadas antes da inicialização do bot)
+                const messageTimestamp = message.messageTimestamp ? parseInt(message.messageTimestamp) * 1000 : Date.now();
+                if (messageTimestamp < botStartTime) {
+                    console.log('⏭️ Ignorando mensagem antiga:', new Date(messageTimestamp).toLocaleString());
+                    continue;
+                }
+                
+                // Verifique se o bot deve atuar neste grupo (ALLOWED_GROUP_NAMES via .env e arquivo allowed_groups.json)
                     const envAllowedList = (process.env.ALLOWED_GROUP_NAMES || '').split(',').map(s => s.trim()).filter(Boolean);
                     const envAllowedUsers = (process.env.ALLOWED_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
                     let fileAllowedList = [];
@@ -245,6 +257,11 @@ async function startBot() {
                 const senderId = message.key.participant || message.key.remoteJid;
                 const isGroup = message.key.remoteJid && message.key.remoteJid.endsWith('@g.us');
                 const groupId = isGroup ? message.key.remoteJid : null;
+                
+                console.log('🔍 DEBUG - Mensagem recebida:');
+                console.log('- senderId:', senderId);
+                console.log('- isGroup:', isGroup);
+                console.log('- remoteJid:', message.key.remoteJid);
 
                 // Se for mensagem de grupo, buscar metadados e validar pela lista de grupos autorizados
                 let groupSubject = null;
@@ -253,6 +270,8 @@ async function startBot() {
                     try {
                         groupMetadataForCheck = await sock.groupMetadata(groupId);
                         groupSubject = groupMetadataForCheck.subject || '';
+                        console.log('🔍 DEBUG - Nome do grupo:', groupSubject);
+                        console.log('🔍 DEBUG - Grupos autorizados:', Array.from(ALLOWED_GROUP_NAMES));
                     } catch (e) {
                         console.warn('⚠️ Falha ao obter metadata do grupo:', e.message);
                     }
@@ -260,8 +279,14 @@ async function startBot() {
                     // Verificar se o grupo está na lista de autorizados
                     if (!groupSubject || !ALLOWED_GROUP_NAMES.has(groupSubject)) {
                         console.log('⏭️ Grupo NÃO autorizado — ignorando:', groupSubject || groupId);
+                        console.log('🔍 DEBUG - Lista completa de grupos permitidos:', ALLOWED_GROUP_NAMES);
                         continue;
+                    } else {
+                        console.log('✅ Grupo AUTORIZADO - processando:', groupSubject);
                     }
+                } else {
+                    // Para mensagens privadas, permitir processamento
+                    console.log('📱 Processando mensagem privada de:', senderId);
                 }
 
                 const contentType = getContentType(message.message);
@@ -329,12 +354,9 @@ async function startBot() {
                     continue;
                 }
 
-                // Restringir respostas em privados para IDs autorizados/permitidos
-                    if (!isGroup) {
-                    if (ALLOWED_USER_IDS.size > 0 && !ALLOWED_USER_IDS.has(senderId) && !(await isAuthorized(senderId))) {
-                        console.log('⏭️ PV não autorizado — ignorando:', senderId);
-                        continue;
-                    }
+                // Processar todas as mensagens privadas
+                if (!isGroup) {
+                    console.log('📱 Processando mensagem privada de:', senderId);
                 }
 
                 // Verificar violações (anti-spam)

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import fetch from 'node-fetch';
 import { getMemory, addToMemory } from './memory.js';
 import { getRealtimeContext } from './realtime.js';
@@ -5,13 +6,18 @@ import { getRealtimeContext } from './realtime.js';
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
+// Debug detalhado
+console.log('🔍 DEBUG - Todas as variáveis .env:', Object.keys(process.env).filter(k => k.includes('API')));
+console.log('🔑 GROQ_API_KEY:', GROQ_API_KEY ? `Carregada (${GROQ_API_KEY.substring(0, 10)}...)` : 'NÃO ENCONTRADA');
+console.log('🔑 OPENROUTER_API_KEY:', OPENROUTER_API_KEY ? `Carregada (${OPENROUTER_API_KEY.substring(0, 10)}...)` : 'NÃO ENCONTRADA');
+
 // Tentar Groq primeiro, depois OpenRouter
-async function callGroq(messages) {
+async function callGroq(messages, apiKey = GROQ_API_KEY) {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${GROQ_API_KEY}`
+            'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
             model: 'llama-3.3-70b-versatile',
@@ -29,12 +35,12 @@ async function callGroq(messages) {
     return response.json();
 }
 
-async function callOpenRouter(messages) {
+async function callOpenRouter(messages, apiKey = OPENROUTER_API_KEY) {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+            'Authorization': `Bearer ${apiKey}`,
             'HTTP-Referer': 'https://github.com/imavybot',
             'X-Title': 'iMavyBot'
         },
@@ -55,6 +61,27 @@ async function callOpenRouter(messages) {
 }
 
 export async function askChatGPT(question, userId = 'default') {
+    // Função desabilitada - não responde mais
+    return null;
+}
+
+// Função original desabilitada
+function askChatGPT_DISABLED(question, userId = 'default') {
+    console.log('🤖 askChatGPT chamada com:', { question: question.substring(0, 50), userId });
+    
+    // Verificar APIs novamente na execução
+    const groqKey = process.env.GROQ_API_KEY;
+    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    
+    console.log('🔍 Verificando APIs na execução:');
+    console.log('- GROQ:', groqKey ? 'OK' : 'FALTANDO');
+    console.log('- OPENROUTER:', openrouterKey ? 'OK' : 'FALTANDO');
+    
+    if (!groqKey && !openrouterKey) {
+        console.error('❌ Nenhuma API disponível no momento da execução');
+        return 'Desculpe, não posso responder no momento.';
+    }
+    
     // Obter contexto em tempo real
     const realtimeInfo = await getRealtimeContext(question);
     
@@ -75,9 +102,9 @@ ${realtimeInfo}`
 
     try {
         // Tentar Groq primeiro
-        if (GROQ_API_KEY) {
+        if (groqKey) {
             try {
-                const data = await callGroq(messages);
+                const data = await callGroq(messages, groqKey);
                 if (data.choices && data.choices[0]) {
                     const resposta = data.choices[0].message.content.trim();
                     addToMemory(userId, 'user', question);
@@ -91,9 +118,9 @@ ${realtimeInfo}`
         }
 
         // Fallback para OpenRouter
-        if (OPENROUTER_API_KEY) {
+        if (openrouterKey) {
             try {
-                const data = await callOpenRouter(messages);
+                const data = await callOpenRouter(messages, openrouterKey);
                 if (data.choices && data.choices[0]) {
                     const resposta = data.choices[0].message.content.trim();
                     addToMemory(userId, 'user', question);
@@ -110,10 +137,10 @@ ${realtimeInfo}`
             }
         }
 
-        return '❌ Nenhuma API disponível. Configure GROQ_API_KEY ou OPENROUTER_API_KEY no .env';
+        return 'Desculpe, não posso responder no momento.';
 
     } catch (error) {
         console.error('❌ Erro ao chamar IA:', error);
-        return '❌ Erro ao conectar com IA. Tente novamente mais tarde.';
+        return 'Desculpe, não posso responder no momento.';
     }
 }

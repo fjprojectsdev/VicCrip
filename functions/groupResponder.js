@@ -1,11 +1,31 @@
 // groupResponder.js
 import { getGroupStatus } from './groupStats.js';
 import { addBlockedWord, addBlockedLink, removeBlockedWord, removeBlockedLink, getCustomBlacklist } from './customBlacklist.js';
-import { askChatGPT } from './chatgpt.js';
 import { addAllowedGroup, listAllowedGroups, removeAllowedGroup } from './adminCommands.js';
 import { addAdmin, removeAdmin, listAdmins, getAdminStats, isAuthorized } from './authManager.js';
 
 const BOT_TRIGGER = 'bot';
+
+// ==============================
+// SISTEMA DE LEMBRETES iMAVY
+// ==============================
+
+// Guardar lembretes ativos por grupo
+const lembretesAtivos = {};
+
+async function mentionAllInvisible(sock, from, messageText) {
+    try {
+        const metadata = await sock.groupMetadata(from);
+        const members = metadata.participants.map(m => m.id);
+
+        await sock.sendMessage(from, {
+            text: messageText,
+            mentions: members
+        });
+    } catch (err) {
+        console.error('Erro ao mencionar todos:', err);
+    }
+}
 
 // Respostas pré-definidas
 const RESPONSES = {
@@ -33,22 +53,7 @@ export async function handleGroupMessages(sock, message) {
             break;
     }
     
-    // Verificar se é resposta a uma mensagem do bot
-    const quotedMessage = message.message?.extendedTextMessage?.contextInfo;
-    if (isGroup && quotedMessage && quotedMessage.participant && text) {
-        // Verificar se a mensagem citada é do bot
-        const quotedFromBot = quotedMessage.fromMe || quotedMessage.participant.includes('bot');
-        
-        if (quotedFromBot || message.message?.extendedTextMessage?.contextInfo?.stanzaId) {
-            console.log('🔄 Resposta detectada para mensagem do bot');
-            const resposta = await askChatGPT(text, senderId);
-            await sock.sendMessage(groupId, { 
-                text: resposta,
-                quoted: message
-            });
-            return;
-        }
-    }
+    // Funcionalidade de resposta automática desabilitada
     
     if (!isGroup && text.toLowerCase().includes('/comandos')) {
         const comandosMsg = `🤖 LISTA COMPLETA DE COMANDOS 🤖
@@ -107,386 +112,23 @@ export async function handleGroupMessages(sock, message) {
             await sock.sendMessage(senderId, { text: RESPONSES[textLower] });
             return;
         }
-        // Caso não seja um comando conhecido em PV, encaminhar para o handler geral (por exemplo GPT)
-        await handlePVUnknown(sock, message, textLower);
-        return;
-    }
-
-    async function handlePVUnknown(sock, message, textLower) {
-        // Se a mensagem começar com o trigger do bot, processar como comando local
-        if (textLower && (textLower.startsWith(BOT_TRIGGER) || textLower.startsWith('bot '))) {
-            // Extrair comando após o trigger
-            const cmd = textLower.replace(BOT_TRIGGER, '').trim();
-            if (cmd && RESPONSES[cmd]) {
-                await sock.sendMessage(senderId, { text: RESPONSES[cmd] });
-                return;
-            }
-            // fallback: enviar ajuda curta
-            await sock.sendMessage(senderId, { text: RESPONSES['ajuda'] });
-            return;
-        }
-        // Se não for reconhecido, ignore para evitar respostas indesejadas
-        return;
-    }
-
-    text = '';
-
-    switch(contentType) {
-        case 'conversation':
-            text = message.message.conversation;
-            break;
-        case 'extendedTextMessage':
-            text = message.message.extendedTextMessage.text;
-            break;
-        default:
-            return;
-    }
-
-    console.log(`💬 Mensagem de ${senderId}: "${text}"`);
-
-
-
-    // Comandos /fechar, /abrir, /fixar, /regras, /status, /banir, /bloqueartermo, /bloquearlink, /removertermo, /removerlink, /listatermos, /comandos, /adicionargrupo, /removergrupo, /listargrupos, /adicionaradmin, /removeradmin, /listaradmins
-    if (text.toLowerCase().includes('/fechar') || text.toLowerCase().includes('/abrir') || text.toLowerCase().includes('/fixar') || text.toLowerCase().includes('/regras') || text.toLowerCase().includes('/status') || text.toLowerCase().includes('/banir') || text.toLowerCase().includes('/bloqueartermo') || text.toLowerCase().includes('/bloquearlink') || text.toLowerCase().includes('/removertermo') || text.toLowerCase().includes('/removerlink') || text.toLowerCase().includes('/listatermos') || text.toLowerCase().includes('/comandos') || text.toLowerCase().includes('/adicionargrupo') || text.toLowerCase().includes('/removergrupo') || text.toLowerCase().includes('/listargrupos') || text.toLowerCase().includes('/adicionaradmin') || text.toLowerCase().includes('/removeradmin') || text.toLowerCase().includes('/listaradmins')) {
-        try {
-            // Lista de comandos que requerem autorização de admin
-            // Comandos informativos (/regras, /status, /comandos) não requerem autorização
-            const adminOnlyCommands = [
-                '/fechar', '/abrir', '/fixar', '/banir', '/bloqueartermo', 
-                '/bloquearlink', '/removertermo', '/removerlink', '/listatermos',
-                '/adicionargrupo', '/removergrupo', '/listargrupos',
-                '/adicionaradmin', '/removeradmin', '/listaradmins'
-            ];
-            
-            // Verificar se o comando requer autorização
-            const requiresAuth = adminOnlyCommands.some(cmd => text.toLowerCase().includes(cmd));
-            
-            // Se requer autorização, verificar se o usuário é admin
-            if (requiresAuth) {
-                const authorized = await isAuthorized(senderId);
-                if (!authorized) {
-                    await sock.sendMessage(groupId, { 
-                        text: '❌ *Acesso Negado*\n\n⚠️ Você não tem permissão para usar este comando.\n\n🔐 Apenas administradores do bot podem executar comandos administrativos.\n\n💡 Entre em contato com um administrador para obter acesso.' 
-                    });
-                    console.log(`🚫 Comando administrativo bloqueado para usuário não autorizado: ${senderId}`);
-                    return;
-                }
-            }
-            
-            if (text.toLowerCase().includes('/fechar')) {
-                await sock.groupSettingUpdate(groupId, 'announcement');
-                const closeMessage = `🕛 Mensagem de Fechamento (00:00)
-
-🌙 Encerramento do Grupo 🌙
-🔒 O grupo está sendo fechado agora (00:00)!
-Agradecemos a participação de todos 💬
-Descansem bem 😴💤
-Voltamos com tudo às 07:00 da manhã! ☀️💪`;
-                const msgFechar = await sock.sendMessage(groupId, { text: closeMessage });
-                console.log(msgFechar ? '✅ Grupo fechado e mensagem enviada' : '❌ Falha ao enviar mensagem de fechamento');
-            } else if (text.toLowerCase().includes('/abrir')) {
-                await sock.groupSettingUpdate(groupId, 'not_announcement');
-                const openMessage = `🌅 Mensagem de Abertura (07:00)
-
-☀️ Bom dia, pessoal! ☀️
-🔓 O grupo foi reaberto (07:00)!
-Desejamos a todos um ótimo início de dia 💫
-Vamos com foco, energia positiva e boas conversas 💬✨`;
-                const msgAbrir = await sock.sendMessage(groupId, { text: openMessage });
-                console.log(msgAbrir ? '✅ Grupo aberto e mensagem enviada' : '❌ Falha ao enviar mensagem de abertura');
-            } else if (text.toLowerCase().includes('/fixar')) {
-                // Extrair menções da mensagem original
-                const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        
+        // Permitir comandos administrativos em PV para administradores autorizados
+        if (textLower && (textLower.includes('/adicionargrupo') || textLower.includes('/removergrupo') || textLower.includes('/listargrupos') || textLower.includes('/adicionaradmin') || textLower.includes('/removeradmin') || textLower.includes('/listaradmins'))) {
+            const authorized = await isAuthorized(senderId);
+            if (authorized) {
+                // Processar comando administrativo em PV
+                const normalizedText = textLower;
                 
-                // Remover apenas o comando /fixar
-                let messageToPin = text.replace(/\/fixar/i, '').trim();
-                
-                if (messageToPin) {
-                    const dataHora = new Date().toLocaleString('pt-BR', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric', 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
-                    
-                    const pinnedMsg = `📌 *MENSAGEM IMPORTANTE* 📌
-━━━━━━━━━━━━━━━━━━━━━━━━━
-${messageToPin}
-━━━━━━━━━━━━━━━━━━━━━━━━━
-🤖 Fixado por iMavyBot | 📅 ${dataHora}`;
-                    
-                    const sentMsg = await sock.sendMessage(groupId, { 
-                        text: pinnedMsg,
-                        mentions: mentionedJids
-                    });
-                    console.log(sentMsg ? '✅ Mensagem fixada enviada' : '❌ Falha ao enviar mensagem fixada');
-                } else {
-                    const msgErroFixar = await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/fixar sua mensagem aqui`\n\nExemplo: `/fixar Reunião amanhã às 15h`' }, { quoted: message });
-                    console.log(msgErroFixar ? '✅ Mensagem de erro fixar enviada' : '❌ Falha ao enviar erro fixar');
-                }
-            } else if (text.toLowerCase().includes('/regras')) {
-                const rulesMessage = `🌟 *⚠️ REGRAS OFICIAIS DO GRUPO ⚠️* 🌟
-━━━━━━━━━━━━━━━━━━━━━━━
-👋 *Bem-vindo(a) ao grupo!*
-_Leia com atenção antes de participar das conversas!_ 💬
-
-━━━━━━━━━━━━━━━━━━━━━━━
-1️⃣ **Respeito acima de tudo!**
-_Nada de xingamentos, discussões ou qualquer tipo de preconceito._ 🙅‍♂️
-
-2️⃣ **Proibido SPAM e divulgação sem permissão.**
-_Mensagens repetidas, links suspeitos e propaganda não autorizada serão removidos._ 🚫
-
-3️⃣ **Mantenha o foco do grupo.**
-_Conversas fora do tema principal atrapalham todos._ 🎯
-
-4️⃣ **Conteúdo inadequado não será tolerado.**
-_Nada de conteúdo adulto, político, religioso ou violento._ ❌
-
-5️⃣ **Use o bom senso.**
-_Se não agregou, não envie._ 🤝
-
-6️⃣ **Apenas administradores podem alterar o grupo.**
-_Nome, foto e descrição são gerenciados pelos ADMs._ 🧑‍💻
-
-7️⃣ **Dúvidas?**
-_Use o comando_ \`/ajuda\` _ou marque um administrador._ 💬
-
-━━━━━━━━━━━━━━━━━━━━━━━
-🕒 **Horários do Grupo:**
-☀️ _Abertura automática:_ **07:00**
-🌙 _Fechamento automático:_ **00:00**
-
-━━━━━━━━━━━━━━━━━━━━━━━
-🤖 **Gerenciado por:** *iMavyBot*
-💡 _Dica:_ Digite **/menu** para ver todos os comandos disponíveis.
-━━━━━━━━━━━━━━━━━━━━━━━
-🔥 _Seu comportamento define a qualidade do grupo._ 🔥`;
-                const msgRegras = await sock.sendMessage(groupId, { text: rulesMessage });
-                console.log(msgRegras ? '✅ Regras enviadas com sucesso' : '❌ Falha ao enviar regras');
-            } else if (text.toLowerCase().includes('/banir')) {
-                const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-                
-                // Extrair motivo do banimento
-                let banReason = text.replace(/\/banir/i, '').replace(/@\d+/g, '').trim();
-                if (!banReason) {
-                    banReason = 'Violação das regras';
-                }
-                
-                if (mentionedJids.length > 0) {
-                    // Buscar metadados do grupo ANTES de remover
-                    const groupMetadata = await sock.groupMetadata(groupId);
-                    
-                    for (const memberId of mentionedJids) {
-                        try {
-                            // Buscar número real ANTES de remover
-                            const participant = groupMetadata.participants.find(p => p.id === memberId);
-                            let memberNumber = memberId.split('@')[0];
-                            if (participant && participant.jid) {
-                                memberNumber = participant.jid.split('@')[0];
-                            }
-                            
-                            console.log('🔍 DEBUG memberId:', memberId);
-                            console.log('🔍 DEBUG participant.jid:', participant?.jid);
-                            console.log('🔍 DEBUG memberNumber extraído:', memberNumber);
-                            
-                            // Formatar número
-                            let formattedNumber = memberNumber;
-                            if (memberNumber.length >= 12) {
-                                const country = memberNumber.substring(0, 2);
-                                const ddd = memberNumber.substring(2, 4);
-                                const part1 = memberNumber.substring(4, 8);
-                                const part2 = memberNumber.substring(8);
-                                formattedNumber = `+${country} (${ddd}) ${part1}-${part2}`;
-                            }
-                            
-                            // Enviar mensagem no PV antes de banir
-                            const dataHoraBrasilia = new Date().toLocaleString('pt-BR', { 
-                                timeZone: 'America/Sao_Paulo',
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                            });
-                            
-                            const banMessage = `────── 🕒 ${dataHoraBrasilia} 🕒 ──────
-
-🚫❌ *Você foi banido do grupo!* ❌🚫
-
-Olá! 👋
-O sistema identificou uma violação grave das regras e, por esse motivo, você foi removido automaticamente pelo bot.
-
-📌 *Detalhes do banimento:*
-• ⚠️ Motivo: ${banReason}
-• 🔨 Ação aplicada: Banimento automático
-• 🔐 Status: Acesso bloqueado
-
-Se você acredita que ocorreu um engano, entre em contato com a equipe de administração. 📨
-
-🔒 Seu acesso ao grupo permanecerá restrito até que uma liberação oficial seja aprovada.
-
-────── 🕒 ${dataHoraBrasilia} 🕒 ──────`;
-                            
-                            await sock.sendMessage(memberId, { text: banMessage });
-                            
-                            // Remover do grupo
-                            await sock.groupParticipantsUpdate(groupId, [memberId], 'remove');
-                            // Notificar no grupo
-                            await sock.sendMessage(groupId, { 
-                                text: `🚫 *Membro banido*\n\n@${memberNumber} foi removido do grupo.`,
-                                mentions: [memberId]
-                            });
-                            
-                            // Notificar administradores
-                            const admins = groupMetadata.participants.filter(p => p.admin && p.id !== memberId).map(p => p.id);
-                            const dataHoraAdm = new Date().toLocaleString('pt-BR', { 
-                                timeZone: 'America/Sao_Paulo',
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                            });
-                            
-                            const adminNotification = `────── 🕒 ${dataHoraAdm} 🕒 ──────
-
-🔥👮 *Atenção, Administradores!* 👮🔥
-O sistema detectou e neutralizou uma violação nas regras do grupo.
-
-Um usuário foi automaticamente penalizado pelo bot. Seguem os detalhes:
-
-📌 *Informações do Usuário:*
-• 🆔 ID: ${memberId}
-• 📱 Número: ${formattedNumber}
-• ⚠️ Motivo: ${banReason}
-
-🚫 A ação automática foi executada conforme as políticas do grupo.
-Os administradores podem revisar o caso e decidir por medidas adicionais, se necessário. ⚖️
-
-🔍 Recomendação: Verificar o histórico do grupo para mais detalhes.
-
-────── 🕒 ${dataHoraAdm} 🕒 ──────`;
-                            
-                            for (const adminId of admins) {
-                                await sock.sendMessage(adminId, { text: adminNotification });
-                            }
-                            
-                            console.log(`✅ Membro ${memberNumber} banido e administradores notificados`);
-                        } catch (e) {
-                            await sock.sendMessage(groupId, { text: `❌ Erro ao banir membro: ${e.message}` });
-                            console.error('❌ Erro ao banir:', e.message);
-                        }
-                    }
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/banir @membro [motivo]`\n\nExemplos:\n• `/banir @pessoa`\n• `/banir @pessoa Spam excessivo`\n• `/banir @pessoa Desrespeito aos membros`' });
-                }
-            } else if (text.toLowerCase().includes('/bloqueartermo')) {
-                const termo = text.replace(/\/bloqueartermo/i, '').trim();
-                if (termo) {
-                    const result = addBlockedWord(termo);
-                    
-                    if (result.success) {
-                        const dataHora = new Date().toLocaleString('pt-BR', { 
-                            timeZone: 'America/Sao_Paulo',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                        });
-                        
-                        // Buscar número do admin
-                        const groupMetadata = await sock.groupMetadata(groupId);
-                        const adminParticipant = groupMetadata.participants.find(p => p.id === senderId);
-                        let adminNumber = senderId.split('@')[0];
-                        if (adminParticipant && adminParticipant.jid) {
-                            adminNumber = adminParticipant.jid.split('@')[0];
-                        }
-                        
-                        // Formatar número
-                        let formattedAdmin = adminNumber;
-                        if (adminNumber.length >= 12) {
-                            const country = adminNumber.substring(0, 2);
-                            const ddd = adminNumber.substring(2, 4);
-                            const part1 = adminNumber.substring(4, 8);
-                            const part2 = adminNumber.substring(8);
-                            formattedAdmin = `+${country} (${ddd}) ${part1}-${part2}`;
-                        }
-                        
-                        const confirmMsg = `✅ *_TERMO PROIBIDO BLOQUEADO COM SUCESSO_* ✅
-
-_🔒 O sistema de segurança do bot bloqueou um termo proibido._
-_Esta notificação foi enviada automaticamente aos administradores._
-
-*📌 Detalhes do bloqueio:*
-• ❗ Termo: ${termo}
-• 👮 Admin Bloqueador: ${formattedAdmin}
-• 🗓️ Data e Hora: ${dataHora}
-
-☑️ Confirmação: O termo foi identificado e removido!`;
-                        
-                        // Enviar para todos os administradores no PV
-                        const admins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
-                        for (const adminId of admins) {
-                            await sock.sendMessage(adminId, { text: confirmMsg });
-                        }
-                        
-                        // Confirmação simples no grupo
-                        await sock.sendMessage(groupId, { text: `✅ Termo "${termo}" bloqueado com sucesso!` });
-                    } else {
-                        await sock.sendMessage(groupId, { text: `⚠️ ${result.message}` });
-                    }
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/bloqueartermo palavra`\n\nExemplo: `/bloqueartermo spam`' });
-                }
-                } else if (text.toLowerCase().startsWith('/adicionargrupo')) {
-                    // Formato esperado: /adicionargrupo Nome do Grupo
+                if (normalizedText.startsWith('/adicionargrupo')) {
                     let param = text.replace(/\/adicionargrupo/i, '').trim();
-                    // Se nenhum parâmetro e estamos no grupo, tentamos usar o subject do grupo
-                    if ((!param || param.length === 0) && isGroup) {
-                        try {
-                            const gm = await sock.groupMetadata(groupId);
-                            param = gm.subject || '';
-                        } catch (e) {
-                            console.warn('⚠️ Falha ao obter subject do grupo para /adicionargrupo:', e.message);
-                        }
-                    }
-
                     const result = await addAllowedGroup(senderId, param);
-                    if (result.success) {
-                        // enviar confirmação privada ao remetente
-                        await sock.sendMessage(senderId, { text: result.message });
-                        // avisar no grupo que a operação foi concluída (sem expor quem executou)
-                        await sock.sendMessage(groupId, { text: `✅ O grupo foi adicionado à lista de funcionamento do bot.` });
-                    } else {
-                        // enviar erro/aviso ao remetente
-                        await sock.sendMessage(senderId, { text: result.message });
-                    }
-                } else if (text.toLowerCase().startsWith('/removergrupo')) {
+                    await sock.sendMessage(senderId, { text: result.message });
+                } else if (normalizedText.startsWith('/removergrupo')) {
                     let param = text.replace(/\/removergrupo/i, '').trim();
-                    if ((!param || param.length === 0) && isGroup) {
-                        try {
-                            const gm = await sock.groupMetadata(groupId);
-                            param = gm.subject || '';
-                        } catch (e) {
-                            console.warn('⚠️ Falha ao obter subject do grupo para /removergrupo:', e.message);
-                        }
-                    }
-
                     const result = await removeAllowedGroup(senderId, param);
-                    if (result.success) {
-                        await sock.sendMessage(senderId, { text: result.message });
-                        await sock.sendMessage(groupId, { text: `✅ O grupo foi removido da lista de funcionamento do bot.` });
-                    } else {
-                        await sock.sendMessage(senderId, { text: result.message });
-                    }
-                } else if (text.toLowerCase().startsWith('/listargrupos')) {
-                    // somente usuários autorizados podem listar
+                    await sock.sendMessage(senderId, { text: result.message });
+                } else if (normalizedText.startsWith('/listargrupos')) {
                     const allowed = await listAllowedGroups();
                     if (!allowed || allowed.length === 0) {
                         await sock.sendMessage(senderId, { text: 'ℹ️ A lista de grupos permitidos está vazia.' });
@@ -495,45 +137,23 @@ _Esta notificação foi enviada automaticamente aos administradores._
                         const reply = `📋 Grupos permitidos:\n\n${formatted}`;
                         await sock.sendMessage(senderId, { text: reply });
                     }
-                } else if (text.toLowerCase().startsWith('/adicionaradmin')) {
-                    const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                } else if (normalizedText.startsWith('/adicionaradmin')) {
                     let param = text.replace(/\/adicionaradmin/i, '').trim();
-                    
-                    // Se mencionou alguém, usar o JID mencionado
-                    if (mentionedJids.length > 0) {
-                        param = mentionedJids[0];
-                    }
-                    
                     if (!param) {
-                        await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/adicionaradmin @usuario` ou `/adicionaradmin 5564993344024`' });
+                        await sock.sendMessage(senderId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/adicionaradmin 5564993344024`' });
                         return;
                     }
-                    
                     const result = await addAdmin(senderId, param);
                     await sock.sendMessage(senderId, { text: result.message });
-                    if (result.success) {
-                        await sock.sendMessage(groupId, { text: `✅ Administrador adicionado com sucesso.` });
-                    }
-                } else if (text.toLowerCase().startsWith('/removeradmin')) {
-                    const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                } else if (normalizedText.startsWith('/removeradmin')) {
                     let param = text.replace(/\/removeradmin/i, '').trim();
-                    
-                    // Se mencionou alguém, usar o JID mencionado
-                    if (mentionedJids.length > 0) {
-                        param = mentionedJids[0];
-                    }
-                    
                     if (!param) {
-                        await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/removeradmin @usuario` ou `/removeradmin 5564993344024`' });
+                        await sock.sendMessage(senderId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/removeradmin 5564993344024`' });
                         return;
                     }
-                    
                     const result = await removeAdmin(senderId, param);
                     await sock.sendMessage(senderId, { text: result.message });
-                    if (result.success) {
-                        await sock.sendMessage(groupId, { text: `✅ Administrador removido com sucesso.` });
-                    }
-                } else if (text.toLowerCase().startsWith('/listaradmins')) {
+                } else if (normalizedText.startsWith('/listaradmins')) {
                     const admins = await listAdmins();
                     const stats = await getAdminStats();
                     
@@ -556,168 +176,414 @@ _Esta notificação foi enviada automaticamente aos administradores._
                     adminList += `\n━━━━━━━━━━━━━━━━━━━━━━━\n💡 Use /adicionaradmin ou /removeradmin para gerenciar`;
                     
                     await sock.sendMessage(senderId, { text: adminList });
-            } else if (text.toLowerCase().includes('/bloquearlink')) {
+                }
+                return;
+            } else {
+                await sock.sendMessage(senderId, { text: '❌ *Acesso Negado*\n\n⚠️ Apenas administradores autorizados podem usar comandos do bot.' });
+                return;
+            }
+        }
+        
+        // Caso não seja um comando conhecido em PV, ignorar
+        return;
+    }
+
+    text = '';
+
+    switch(contentType) {
+        case 'conversation':
+            text = message.message.conversation;
+            break;
+        case 'extendedTextMessage':
+            text = message.message.extendedTextMessage.text;
+            break;
+        default:
+            return;
+    }
+
+    console.log(`💬 Mensagem de ${senderId}: "${text}"`);
+    const normalizedText = text.toLowerCase();
+
+    // Ignorar comandos dentro de mensagens pré-definidas (como regras)
+    if (text.includes('REGRAS OFICIAIS DO GRUPO') || text.includes('iMavyBot') || text.includes('Bem-vindo(a) ao grupo')) {
+        console.log('⏭️ Ignorando comandos dentro de mensagem pré-definida');
+        return;
+    }
+    
+    // Comandos administrativos
+    if (normalizedText.includes('/fechar') || normalizedText.includes('/abrir') || normalizedText.includes('/fixar') || normalizedText.includes('/regras') || normalizedText.includes('/status') || normalizedText.includes('/banir') || normalizedText.includes('/lembrete') || normalizedText.includes('/stoplembrete') || normalizedText.includes('/bloqueartermo') || normalizedText.includes('/bloquearlink') || normalizedText.includes('/removertermo') || normalizedText.includes('/removerlink') || normalizedText.includes('/listatermos') || normalizedText.includes('/comandos') || normalizedText.includes('/adicionargrupo') || normalizedText.includes('/removergrupo') || normalizedText.includes('/listargrupos') || normalizedText.includes('/adicionaradmin') || normalizedText.includes('/removeradmin') || normalizedText.includes('/listaradmins')) {
+        try {
+            const isRulesCommand = normalizedText.includes('/regras');
+            const requiresAuth = !isRulesCommand;
+            
+            // Se requer autorização, verificar se o usuário é admin
+            if (requiresAuth) {
+                const authorized = await isAuthorized(senderId);
+                if (!authorized) {
+                    await sock.sendMessage(groupId, { 
+                        text: '❌ *Acesso Negado*\n\n⚠️ Apenas administradores autorizados podem usar comandos do bot.\n👥 Integrantes comuns têm acesso somente ao comando /regras.\n\n💡 Entre em contato com um administrador para solicitar permissão.' 
+                    });
+                    console.log(`🚫 Comando administrativo bloqueado para usuário não autorizado: ${senderId}`);
+                    return;
+                }
+            }
+            
+            if (normalizedText.includes('/regras')) {
+                const rulesMessage = `⚠ *REGRAS OFICIAIS DO GRUPO* ⚠
+     *Bem-vindo(a) ao grupo!*
+_Leia com atenção antes de participar das conversas!_
+
+❗ *Respeito acima de tudo!*
+_Nada de xingamentos, discussões ou qualquer tipo de preconceito._
+
+❗ *Proibido SPAM e divulgação sem permissão.*
+_Mensagens repetidas, links suspeitos e propaganda não autorizada serão removidos._
+
+❗ *Mantenha o foco do grupo.*
+_Conversas fora do tema principal atrapalham todos._
+
+❗ *Conteúdo inadequado não será tolerado.*
+_Nada de conteúdo adulto, político, religioso ou violento._
+
+❗ *Use o bom senso.*
+_Se não agregou, não envie._
+
+❗ *Apenas administradores podem alterar o grupo.*
+_Nome, foto e descrição são gerenciados pelos ADMs._
+
+❗ *Dúvidas?*
+_Use o comando /ajuda ou marque um administrador._ 💬
+━━━━━━━━━━━━━━━━━━━
+🕒 *Horários do Grupo:*
+☀ _Abertura automática:_ *07:00*
+🌙 _Fechamento automático:_ *00:00*
+
+💡 _Dica:_ Digite */comandos* para ver todos os comandos disponíveis.
+
+❕ _Seu comportamento define a qualidade do grupo._`;
+                
+                const msgRegras = await sock.sendMessage(groupId, { text: rulesMessage });
+                console.log(msgRegras ? '✅ Regras enviadas com sucesso' : '❌ Falha ao enviar regras');
+            } else if (normalizedText.includes('/fechar')) {
+                await sock.groupSettingUpdate(groupId, 'announcement');
+                const closeMessage = `🕛 Mensagem de Fechamento (00:00)
+
+🌙 Encerramento do Grupo 🌙
+🔒 O grupo está sendo fechado agora (00:00)!
+Agradecemos a participação de todos 💬
+Descansem bem 😴💤
+Voltamos com tudo às 07:00 da manhã! ☀️💪`;
+                await sock.sendMessage(groupId, { text: closeMessage });
+            } else if (normalizedText.includes('/abrir')) {
+                await sock.groupSettingUpdate(groupId, 'not_announcement');
+                const openMessage = `🌅 Mensagem de Abertura (07:00)
+
+☀️ Bom dia, pessoal! ☀️
+🔓 O grupo foi reaberto (07:00)!
+Desejamos a todos um ótimo início de dia 💫
+Vamos com foco, energia positiva e boas conversas 💬✨`;
+                await sock.sendMessage(groupId, { text: openMessage });
+            } else if (normalizedText.includes('/status')) {
+                const statusMessage = await getGroupStatus(sock, groupId);
+                await sock.sendMessage(groupId, { text: statusMessage });
+            } else if (normalizedText.includes('/fixar')) {
+                const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                let messageToPin = text.replace(/\/fixar/i, '').trim();
+                if (messageToPin) {
+                    const agora = new Date();
+                    const data = agora.toLocaleDateString('pt-BR');
+                    const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    const pinnedMsg = `📌 MENSAGEM IMPORTANTE 📌
+━━━━━━━━━━━━━━━━━━━
+${messageToPin}
+━━━━━━━━━━━━━━━━━━━
+| 📅 DATA: ${data}
+| 🕓HORA: ${hora}`;
+                    await sock.sendMessage(groupId, { text: pinnedMsg, mentions: mentionedJids });
+                } else {
+                    await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/fixar sua mensagem aqui`' });
+                }
+            } else if (normalizedText.includes('/banir')) {
+                const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                if (mentionedJids.length > 0) {
+                    const groupMetadata = await sock.groupMetadata(groupId);
+                    for (const memberId of mentionedJids) {
+                        const memberNumber = memberId.split('@')[0];
+                        await sock.groupParticipantsUpdate(groupId, [memberId], 'remove');
+                        await sock.sendMessage(groupId, { text: `🚫 Membro banido com sucesso!` });
+                        
+                        // Notificar administradores
+                        const admins = groupMetadata.participants.filter(p => p.admin && p.id !== memberId).map(p => p.id);
+                        const dataHora = new Date().toLocaleString('pt-BR');
+                        const adminNotification = `🔥👮 *ATENÇÃO, ADMINISTRADORES!* 👮🔥
+
+Um membro foi banido do grupo:
+
+📌 *Informações:*
+• 🆔 ID: ${memberId}
+• 📱 Número: ${memberNumber}
+• 🕓 Data/Hora: ${dataHora}
+
+🚫 Ação executada por comando administrativo.`;
+                        
+                        for (const adminId of admins) {
+                            await sock.sendMessage(adminId, { text: adminNotification });
+                        }
+                    }
+                } else {
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/banir @membro`' });
+                }
+            } else if (normalizedText.startsWith('/adicionargrupo')) {
+                let param = text.replace(/\/adicionargrupo/i, '').trim();
+                if (!param && isGroup) {
+                    const gm = await sock.groupMetadata(groupId);
+                    param = gm.subject || '';
+                }
+                const result = await addAllowedGroup(senderId, param);
+                await sock.sendMessage(senderId, { text: result.message });
+                if (result.success) {
+                    await sock.sendMessage(groupId, { text: '✅ Grupo adicionado à lista!' });
+                }
+            } else if (normalizedText.startsWith('/removergrupo')) {
+                let param = text.replace(/\/removergrupo/i, '').trim();
+                if (!param && isGroup) {
+                    const gm = await sock.groupMetadata(groupId);
+                    param = gm.subject || '';
+                }
+                const result = await removeAllowedGroup(senderId, param);
+                await sock.sendMessage(senderId, { text: result.message });
+                if (result.success) {
+                    await sock.sendMessage(groupId, { text: '✅ Grupo removido da lista!' });
+                }
+            } else if (normalizedText.startsWith('/listargrupos')) {
+                const allowed = await listAllowedGroups();
+                if (!allowed || allowed.length === 0) {
+                    await sock.sendMessage(senderId, { text: 'ℹ️ Lista de grupos vazia.' });
+                } else {
+                    const formatted = allowed.map((g, i) => `${i + 1}. ${g}`).join('\n');
+                    await sock.sendMessage(senderId, { text: `📋 Grupos permitidos:\n\n${formatted}` });
+                }
+            } else if (normalizedText.startsWith('/adicionaradmin')) {
+                const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                let param = text.replace(/\/adicionaradmin/i, '').trim();
+                if (mentionedJids.length > 0) param = mentionedJids[0];
+                if (!param) {
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/adicionaradmin @usuario`' });
+                    return;
+                }
+                const result = await addAdmin(senderId, param);
+                await sock.sendMessage(senderId, { text: result.message });
+                if (result.success) {
+                    await sock.sendMessage(groupId, { text: '✅ Admin adicionado!' });
+                }
+            } else if (normalizedText.startsWith('/removeradmin')) {
+                const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+                let param = text.replace(/\/removeradmin/i, '').trim();
+                if (mentionedJids.length > 0) param = mentionedJids[0];
+                if (!param) {
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/removeradmin @usuario`' });
+                    return;
+                }
+                const result = await removeAdmin(senderId, param);
+                await sock.sendMessage(senderId, { text: result.message });
+                if (result.success) {
+                    await sock.sendMessage(groupId, { text: '✅ Admin removido!' });
+                }
+            } else if (normalizedText.startsWith('/listaradmins')) {
+                const admins = await listAdmins();
+                if (admins.length === 0) {
+                    await sock.sendMessage(senderId, { text: 'ℹ️ Nenhum admin configurado.' });
+                } else {
+                    let adminList = `👮 *ADMINISTRADORES*\n━━━━━━━━━━━━━━━━\n\n`;
+                    admins.forEach((admin, index) => {
+                        adminList += `${index + 1}. ${admin.id}\n`;
+                    });
+                    await sock.sendMessage(senderId, { text: adminList });
+                }
+            } else if (normalizedText.includes('/bloqueartermo')) {
+                const termo = text.replace(/\/bloqueartermo/i, '').trim();
+                if (termo) {
+                    const result = addBlockedWord(termo);
+                    await sock.sendMessage(groupId, { text: result.success ? `✅ Termo "${termo}" bloqueado!` : `⚠️ ${result.message}` });
+                } else {
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/bloqueartermo palavra`' });
+                }
+            } else if (normalizedText.includes('/bloquearlink')) {
                 const link = text.replace(/\/bloquearlink/i, '').trim();
                 if (link) {
                     const result = addBlockedLink(link);
-                    
-                    if (result.success) {
-                        const dataHora = new Date().toLocaleString('pt-BR', { 
-                            timeZone: 'America/Sao_Paulo',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                        });
-                        
-                        // Buscar número do admin
-                        const groupMetadata = await sock.groupMetadata(groupId);
-                        const adminParticipant = groupMetadata.participants.find(p => p.id === senderId);
-                        let adminNumber = senderId.split('@')[0];
-                        if (adminParticipant && adminParticipant.jid) {
-                            adminNumber = adminParticipant.jid.split('@')[0];
-                        }
-                        
-                        // Formatar número
-                        let formattedAdmin = adminNumber;
-                        if (adminNumber.length >= 12) {
-                            const country = adminNumber.substring(0, 2);
-                            const ddd = adminNumber.substring(2, 4);
-                            const part1 = adminNumber.substring(4, 8);
-                            const part2 = adminNumber.substring(8);
-                            formattedAdmin = `+${country} (${ddd}) ${part1}-${part2}`;
-                        }
-                        
-                        const confirmMsg = `✅ *_LINK PROIBIDO BLOQUEADO COM SUCESSO_* ✅
-
-_🔒 O sistema de segurança do bot bloqueou um link proibido._
-_Esta notificação foi enviada automaticamente aos administradores._
-
-*📌 Detalhes do bloqueio:*
-• ❗ Link: ${link}
-• 👮 Admin Bloqueador: ${formattedAdmin}
-• 🗓️ Data e Hora: ${dataHora}
-
-☑️ Confirmação: O link foi identificado e removido!`;
-                        
-                        // Enviar para todos os administradores no PV
-                        const admins = groupMetadata.participants.filter(p => p.admin).map(p => p.id);
-                        for (const adminId of admins) {
-                            await sock.sendMessage(adminId, { text: confirmMsg });
-                        }
-                        
-                        // Confirmação simples no grupo
-                        await sock.sendMessage(groupId, { text: `✅ Link "${link}" bloqueado com sucesso!` });
-                    } else {
-                        await sock.sendMessage(groupId, { text: `⚠️ ${result.message}` });
-                    }
+                    await sock.sendMessage(groupId, { text: result.success ? `✅ Link "${link}" bloqueado!` : `⚠️ ${result.message}` });
                 } else {
-                    await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/bloquearlink dominio`\n\nExemplo: `/bloquearlink exemplo.com`' });
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/bloquearlink dominio`' });
                 }
-            } else if (text.toLowerCase().includes('/comandos')) {
-                const comandosMsg = `🤖 LISTA COMPLETA DE COMANDOS 🤖
+            } else if (normalizedText.includes('/removertermo')) {
+                const termo = text.replace(/\/removertermo/i, '').trim();
+                if (termo) {
+                    const result = removeBlockedWord(termo);
+                    await sock.sendMessage(groupId, { text: result.success ? `✅ Termo "${termo}" removido!` : `⚠️ ${result.message}` });
+                } else {
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/removertermo palavra`' });
+                }
+            } else if (normalizedText.includes('/removerlink')) {
+                const link = text.replace(/\/removerlink/i, '').trim();
+                if (link) {
+                    const result = removeBlockedLink(link);
+                    await sock.sendMessage(groupId, { text: result.success ? `✅ Link "${link}" removido!` : `⚠️ ${result.message}` });
+                } else {
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/removerlink dominio`' });
+                }
+            } else if (normalizedText.includes('/listatermos')) {
+                const blacklist = getCustomBlacklist();
+                let listaMsg = `📝 *TERMOS E LINKS BLOQUEADOS*\n━━━━━━━━━━━━━━━━\n\n`;
+                if (blacklist.words.length > 0) {
+                    listaMsg += `🚫 *Palavras:*\n${blacklist.words.map((w, i) => `${i + 1}. ${w}`).join('\n')}\n\n`;
+                }
+                if (blacklist.links.length > 0) {
+                    listaMsg += `🔗 *Links:*\n${blacklist.links.map((l, i) => `${i + 1}. ${l}`).join('\n')}\n\n`;
+                }
+                listaMsg += `📊 *Total:* ${blacklist.words.length + blacklist.links.length} bloqueios`;
+                await sock.sendMessage(groupId, { text: listaMsg });
+            } else if (normalizedText.startsWith('/lembrete')) {
+                const partes = text.split(' + ');
+                
+                if (partes.length < 2) {
+                    await sock.sendMessage(groupId, { text: '❗ Use: /lembrete + mensagem 1h 24h\nEx: /lembrete + REUNIÃO HOJE! 1h 24h' });
+                    return;
+                }
+                
+                const resto = partes[1].trim().split(' ');
+                const tempos = resto.slice(-2); // últimos 2 elementos (1h 24h)
+                const comando = resto.slice(0, -2).join(' '); // tudo menos os 2 últimos
+                
+                const intervalo = parseInt(tempos[0]);
+                const encerramento = parseInt(tempos[1]);
+                
+                if (!comando || !intervalo || !encerramento) {
+                    await sock.sendMessage(groupId, { text: '❗ Use: /lembrete + mensagem 1h 24h\nEx: /lembrete + REUNIÃO HOJE! 1h 24h' });
+                    return;
+                }
+                
+                // Validações
+                if (intervalo < 1 || intervalo > 24) {
+                    await sock.sendMessage(groupId, { text: '⛔ O intervalo deve ser entre *1 e 24 horas*.' });
+                    return;
+                }
+                
+                if (encerramento < intervalo || encerramento > 48) {
+                    await sock.sendMessage(groupId, { text: '⛔ O encerramento deve ser maior que o intervalo e máximo 48 horas.' });
+                    return;
+                }
+                
+                const intervaloMs = intervalo * 60 * 60 * 1000;
+                const encerramentoMs = encerramento * 60 * 60 * 1000;
+                
+                // cancelar lembrete existente
+                if (lembretesAtivos[groupId]) {
+                    clearInterval(lembretesAtivos[groupId]);
+                }
+                
+                // MENSAGEM FORMATADA
+                const data = new Date();
+                const dia = `${data.getDate()}`.padStart(2, '0');
+                const mes = `${data.getMonth()+1}`.padStart(2, '0');
+                const ano = data.getFullYear();
+                const hora = `${data.getHours()}`.padStart(2, '0');
+                const min = `${data.getMinutes()}`.padStart(2, '0');
+                
+                const msgFormatada = `🚨 *LEMBRETE GLOBAL DO SISTEMA* 🚨
+━━━━━━━━━━━━━━━━━━
+> 📅 Data: ${dia}/${mes}/${ano}
+> 🕒 Horário: ${hora}:${min}
+> 🔔 Status: Notificação enviada à todos os membros.
+━━━━━━━━━━━━━━━━━━
+
+${comando}
+━━━━━━━━━━━━━━━━━━
+⛔ *Configurado para repetir a cada ${intervalo}h*
+⏰ *Encerramento automático em ${encerramento}h*
+*_Sistema iMavy — Automação Inteligente_*`;
+                
+                // Enviar primeira vez
+                await mentionAllInvisible(sock, groupId, msgFormatada);
+                
+                // Criar temporizador automático
+                lembretesAtivos[groupId] = setInterval(async () => {
+                    const agora = new Date();
+                    const d = `${agora.getDate()}`.padStart(2, '0');
+                    const m = `${agora.getMonth()+1}`.padStart(2, '0');
+                    const a = agora.getFullYear();
+                    const h = `${agora.getHours()}`.padStart(2, '0');
+                    const mn = `${agora.getMinutes()}`.padStart(2, '0');
+                    
+                    const repeticao = `🚨 *LEMBRETE AUTOMÁTICO* 🚨
+━━━━━━━━━━━━━━━━━━
+> 📅 Data: ${d}/${m}/${a}
+> 🕒 Horário: ${h}:${mn}
+> 🔔 Status: Lembrete automático ativo.
+━━━━━━━━━━━━━━━━━━
+
+${comando}
+
+*_Sistema iMavy — Automação Inteligente_*`;
+                    
+                    await mentionAllInvisible(sock, groupId, repeticao);
+                }, intervaloMs);
+                
+                // Encerramento automático
+                setTimeout(() => {
+                    if (lembretesAtivos[groupId]) {
+                        clearInterval(lembretesAtivos[groupId]);
+                        delete lembretesAtivos[groupId];
+                        sock.sendMessage(groupId, { text: '⏰ *Lembrete encerrado automaticamente após ${encerramento}h*\n\n*_Sistema iMavy — Automação Inteligente_*' });
+                    }
+                }, encerramentoMs);
+            } else if (normalizedText === '/stoplembrete') {
+                if (lembretesAtivos[groupId]) {
+                    clearInterval(lembretesAtivos[groupId]);
+                    delete lembretesAtivos[groupId];
+                    await sock.sendMessage(groupId, { text: '🛑 O lembrete automático foi *desativado* com sucesso!' });
+                } else {
+                    await sock.sendMessage(groupId, { text: 'ℹ️ Não há nenhum lembrete ativo neste grupo.' });
+                }
+            } else if (normalizedText.includes('/comandos')) {
+                const comandosMsg = `🤖LISTA DE COMANDOS🤖
 ━━━━━━━━━━━━━━━━
-👮 COMANDOS ADMINISTRATIVOS:
+🛂  COMANDOS ADMINISTRATIVOS:
 
 * 🔒 /fechar - Fecha o grupo
 * 🔓 /abrir - Abre o grupo
 * 📌 /fixar [mensagem]
-* 🚫 /banir @membro [motivo]
+* 🚫 /banir @membro
+* 📢 /lembrete + mensagem 1h 24h
+* 🛑 /stoplembrete - Para lembrete
 * 🚫 /bloqueartermo [palavra]
 * 🔗 /bloquearlink [dominio]
-* ✏️ /removertermo [palavra]
+* ✏ /removertermo [palavra]
 * 🔓 /removerlink [dominio]
 * 📝 /listatermos
-* 🛠️ /adicionargrupo [Nome do Grupo | JID]
-* 🗑️ /removergrupo [Nome do Grupo | JID]
+* 🛠 /adicionargrupo [nome]
+* 🗑 /removergrupo [nome]
 * 📋 /listargrupos
 * 👮 /adicionaradmin @usuario
-* 🗑️ /removeradmin @usuario
+* 🗑 /removeradmin @usuario
 * 📋 /listaradmins
 ━━━━━━━━━━━━━━━━
 📊 COMANDOS DE INFORMAÇÃO:
 
-* 📊 /status - Status e estatísticas do grupo
-* 📋 /regras - Exibe regras do grupo
-* 📱 /comandos - Lista todos os comandos
-━━━━━━━━━━━━━━━━
-🤖 COMANDOS DO BOT:
-
-* 👋 bot oi - Saudação
-* ❓ bot ajuda - Ajuda rápida
-* ✅ bot status - Status do bot
-* ℹ️ bot info - Informações do bot
-━━━━━━━━━━━━━━━━
+* 📊 /status - Status do grupo
+* 📋 /regras - Regras do grupo
+* 📱 /comandos - Lista de comandos
 ━━━━━━━━━━━━━━━━
 🔒 Sistema de Segurança Ativo
 * Anti-spam automático
 * Sistema de strikes (3 = expulsão)
 * Bloqueio de links e palavras proibidas
 * Notificação automática aos admins
+* Lembretes automáticos com temporizador
 ━━━━━━━━━━━━━━━━
-🤖 iMavyBot v2.0 - Protegendo seu grupo 24/7`;
-
+ iMavyBot v2.0
+copyright ©`;
                 await sock.sendMessage(groupId, { text: comandosMsg });
-            } else if (text.toLowerCase().includes('/banir')) {
-                const termo = text.replace(/\/removertermo/i, '').trim();
-                if (termo) {
-                    const result = removeBlockedWord(termo);
-                    const emoji = result.success ? '✅' : '⚠️';
-                    await sock.sendMessage(groupId, { text: `${emoji} ${result.message}` });
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/removertermo palavra`\n\nExemplo: `/removertermo spam`' });
-                }
-            } else if (text.toLowerCase().includes('/removerlink')) {
-                const link = text.replace(/\/removerlink/i, '').trim();
-                if (link) {
-                    const result = removeBlockedLink(link);
-                    const emoji = result.success ? '✅' : '⚠️';
-                    await sock.sendMessage(groupId, { text: `${emoji} ${result.message}` });
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ *Uso incorreto!*\n\n📝 Use: `/removerlink dominio`\n\nExemplo: `/removerlink exemplo.com`' });
-                }
-            } else if (text.toLowerCase().includes('/listatermos')) {
-                const blacklist = getCustomBlacklist();
-                const totalWords = blacklist.words.length;
-                const totalLinks = blacklist.links.length;
-                
-                let listaMsg = `📝 *TERMOS E LINKS BLOQUEADOS* 📝
-━━━━━━━━━━━━━━━━━━━━━━━
-
-`;
-                
-                if (totalWords > 0) {
-                    listaMsg += `🚫 *Palavras Bloqueadas:*\n\n`;
-                    blacklist.words.forEach((word, index) => {
-                        listaMsg += `${index + 1}. ${word}\n`;
-                    });
-                    listaMsg += `\n`;
-                } else {
-                    listaMsg += `🚫 *Palavras Bloqueadas:* Nenhuma\n\n`;
-                }
-                
-                if (totalLinks > 0) {
-                    listaMsg += `🔗 *Links Bloqueados:*\n\n`;
-                    blacklist.links.forEach((link, index) => {
-                        listaMsg += `${index + 1}. ${link}\n`;
-                    });
-                    listaMsg += `\n`;
-                } else {
-                    listaMsg += `🔗 *Links Bloqueados:* Nenhum\n\n`;
-                }
-                
-                listaMsg += `━━━━━━━━━━━━━━━━━━━━━━━
-📊 *Total:* ${totalWords + totalLinks} bloqueios personalizados`;
-                
-                await sock.sendMessage(groupId, { text: listaMsg });
-            } else if (text.toLowerCase().includes('/status')) {
-                console.log('📊 ➜ Comando /status executado');
-                const statusMessage = await getGroupStatus(sock, groupId);
-                console.log('📊 ➜ Mensagem de status gerada');
-                const msgStatus = await sock.sendMessage(groupId, { text: statusMessage });
-                console.log(msgStatus ? '✅ Status enviado com sucesso' : '❌ Falha ao enviar status');
             }
         } catch (err) {
             console.error('❌ Erro ao executar comando:', err);
@@ -725,12 +591,5 @@ _Esta notificação foi enviada automaticamente aos administradores._
         return;
     }
 
-    if (!text || !text.toLowerCase().includes(BOT_TRIGGER)) return;
-
-    // Busca resposta pré-definida
-    const command = text.toLowerCase().replace(BOT_TRIGGER, '').trim();
-    const reply = RESPONSES[command] || '❓ Comando não reconhecido. Digite "bot ajuda" para ver os comandos.';
-
-    const msgResposta = await sock.sendMessage(groupId, { text: reply }, { quoted: message });
-    console.log(msgResposta ? `✅ Resposta enviada: ${reply}` : `❌ Falha ao enviar: ${reply}`);
+    // Modo de respostas inteligentes desabilitado - apenas comandos
 }
