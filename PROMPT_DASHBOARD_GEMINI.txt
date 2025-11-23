@@ -1,0 +1,236 @@
+PROMPT PARA GEMINI 3 - CRIAR DASHBOARD ONLINE iMavyBot
+
+===================================
+INSTRUÇÕES PARA O GEMINI:
+===================================
+
+Crie um site dashboard completo e funcional para o iMavyBot com as seguintes especificações:
+
+---
+
+## 🎨 DESIGN E VISUAL:
+
+1. **Cores principais:**
+   - Gradiente roxo: #667eea → #764ba2
+   - Fundo: gradiente linear 135deg
+   - Cards brancos com sombras suaves
+   - Texto principal: #667eea
+   - Texto secundário: #666
+
+2. **Layout:**
+   - Header centralizado com logo "🤖 iMavyBot Dashboard"
+   - Grid responsivo de 4 cards de estatísticas
+   - Seções com bordas arredondadas (15px)
+   - Sombras: 0 10px 30px rgba(0,0,0,0.2)
+   - Espaçamento: 20-30px entre elementos
+
+3. **Tipografia:**
+   - Font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif
+   - Títulos: 2.5em, bold
+   - Números: 2.5em, bold, cor #667eea
+   - Subtítulos: 0.9em, uppercase
+
+---
+
+## 🔐 SISTEMA DE LOGIN:
+
+1. **Tela de login:**
+   - Box centralizado (400px max-width)
+   - Input de senha com placeholder "Digite a senha"
+   - Botão gradiente roxo
+   - Texto informativo: "Senha padrão: admin123"
+   - Enter para submeter
+
+2. **Autenticação:**
+   - JWT token armazenado em localStorage
+   - Validação no backend
+   - Logout com botão no canto superior direito
+
+---
+
+## 📊 ESTATÍSTICAS (4 Cards):
+
+1. **Palavras Banidas** - Contador dinâmico
+2. **Grupos Permitidos** - Contador dinâmico
+3. **Administradores** - Contador dinâmico
+4. **Lembretes Ativos** - Contador dinâmico
+
+---
+
+## 🛠️ SEÇÕES DE GERENCIAMENTO:
+
+### 1. Palavras Banidas:
+- Input + botão "Adicionar"
+- Lista com botão "Remover" vermelho
+- Atualização em tempo real
+
+### 2. Grupos Permitidos:
+- Input + botão "Adicionar"
+- Lista com botão "Remover" vermelho
+- Atualização em tempo real
+
+### 3. Administradores:
+- Lista somente leitura
+- Badge verde "Ativo"
+
+### 4. Logs Recentes:
+- Últimos 10 logs
+- Formato: "Ação - Data/Hora"
+- Atualização automática a cada 30s
+
+---
+
+## 🔌 API ENDPOINTS (Backend Node.js + Express):
+
+```javascript
+POST /api/login
+Body: { password: string }
+Response: { token: string, message: string }
+
+GET /api/stats
+Headers: Authorization: Bearer {token}
+Response: {
+  bannedWords: number,
+  allowedGroups: number,
+  admins: number,
+  lembretes: number
+}
+
+GET /api/banned-words
+Headers: Authorization: Bearer {token}
+Response: string[]
+
+POST /api/banned-words
+Headers: Authorization: Bearer {token}
+Body: { word: string }
+Response: { success: boolean, message: string }
+
+DELETE /api/banned-words/:word
+Headers: Authorization: Bearer {token}
+Response: { success: boolean, message: string }
+
+GET /api/allowed-groups
+Headers: Authorization: Bearer {token}
+Response: string[]
+
+POST /api/allowed-groups
+Headers: Authorization: Bearer {token}
+Body: { name: string }
+Response: { success: boolean, message: string }
+
+DELETE /api/allowed-groups/:name
+Headers: Authorization: Bearer {token}
+Response: { success: boolean, message: string }
+
+GET /api/admins
+Headers: Authorization: Bearer {token}
+Response: string[]
+
+GET /api/logs
+Headers: Authorization: Bearer {token}
+Query: ?limit=50
+Response: Array<{ action: string, timestamp: string }>
+```
+
+---
+
+## 💾 INTEGRAÇÃO COM ARQUIVOS JSON:
+
+O backend deve ler/escrever nos seguintes arquivos:
+- `banned_words.json` - Array de strings
+- `allowed_groups.json` - Array de strings
+- `admins.json` - { admins: string[] }
+- `lembretes.json` - Object com lembretes ativos
+- `bot.log` - Arquivo de logs
+
+---
+
+## ⚡ FUNCIONALIDADES ESPECIAIS:
+
+1. **Auto-refresh:** Atualizar dados a cada 30 segundos
+2. **Responsivo:** Mobile-first design
+3. **Animações:** Transições suaves (0.3s)
+4. **Feedback:** Alertas de sucesso/erro
+5. **Loading states:** Indicadores visuais
+
+---
+
+## 🎯 BADGES E BOTÕES:
+
+**Badges:**
+- Success (verde): #10b981
+- Danger (vermelho): #ef4444
+- Warning (amarelo): #f59e0b
+- Padding: 5px 15px, border-radius: 20px
+
+**Botões:**
+- Primary: gradiente roxo #667eea → #764ba2
+- Danger: #ef4444
+- Padding: 8-15px, border-radius: 8px
+- Hover: opacity 0.9
+
+---
+
+## 📱 RESPONSIVIDADE:
+
+- Desktop: Grid 4 colunas
+- Tablet: Grid 2 colunas
+- Mobile: Grid 1 coluna
+- Breakpoints: 768px, 1024px
+
+---
+
+## 🔒 SEGURANÇA:
+
+1. JWT com expiração de 24h
+2. Senha padrão: "admin123" (configurável via .env)
+3. CORS habilitado
+4. Validação de token em todas as rotas protegidas
+
+---
+
+## 📦 TECNOLOGIAS:
+
+**Frontend:**
+- HTML5 puro
+- CSS3 (sem frameworks)
+- JavaScript vanilla (sem jQuery)
+- Fetch API para requisições
+
+**Backend:**
+- Node.js + Express
+- jsonwebtoken para JWT
+- cors para CORS
+- fs para manipulação de arquivos
+
+---
+
+## 🚀 DEPLOY:
+
+Gere código pronto para deploy em:
+- Vercel (frontend + serverless functions)
+- Netlify (frontend + functions)
+- Railway (fullstack)
+
+Inclua:
+- package.json completo
+- .env.example
+- README.md com instruções
+
+---
+
+## 💡 EXTRAS OPCIONAIS:
+
+1. Gráficos de estatísticas (Chart.js)
+2. Notificações em tempo real (WebSocket)
+3. Exportar logs em CSV
+4. Dark mode toggle
+5. Filtros e busca nas listas
+
+---
+
+IMPORTANTE: O código deve ser limpo, comentado e seguir boas práticas. Priorize performance e UX.
+
+===================================
+FIM DO PROMPT
+===================================

@@ -9,9 +9,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendWelcomeMessage } from './functions/welcomeMessage.js';
-import { checkViolation, notifyAdmins, notifyUser, logViolation } from './functions/antiSpam.js';
+import { checkViolation, notifyAdmins } from './functions/antiSpam.js';
 import { addStrike, applyPunishment } from './functions/strikeSystem.js';
-import { incrementViolation, getGroupStatus } from './functions/groupStats.js';
+import { getGroupStatus } from './functions/groupStats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +20,15 @@ import { isAuthorized } from './functions/adminCommands.js';
 import { getNumberFromJid, formatNumberInternational } from './functions/utils.js';
 import { scheduleGroupMessages } from './functions/scheduler.js';
 import { ensureCoreConfigFiles } from './functions/configBootstrap.js';
+import { scheduleBackups } from './functions/backup.js';
+import { logger } from './functions/logger.js';
+import { startScheduler } from './functions/scheduler2.js';
+import { detectClientInterest, sendAttendanceMessage, shouldSendAttendance, sendVerificationMessage, markAsVerified, isVerified, notifyAttendants } from './functions/autoAttendance.js';
+import { getAdmins } from './functions/authManager.js';
+import { scheduleSupabaseBackup } from './functions/supabaseBackup.js';
+import { analyzeMessage, isAIEnabled } from './functions/aiModeration.js';
+
+console.log('🤖 IA de Moderação:', isAIEnabled() ? '✅ ATIVA (Groq)' : '❌ Desabilitada');
 
 // Variável para armazenar o servidor HTTP temporário
 let qrServer = null;
@@ -31,6 +40,8 @@ async function startBot() {
     console.log("===============================================");
     console.log("🚀 Iniciando iMavyBot - Respostas Pré-Definidas");
     console.log("===============================================");
+    console.log('🤖 IA Status: Groq (gratuito e rápido) para moderação automática!');
+    console.log('⚙️ Sistema de lembretes avançado com encerramento automático ativo!');
 
     await ensureCoreConfigFiles();
 
@@ -192,9 +203,11 @@ async function startBot() {
         console.log('📡 Status da conexão:', connection);
 
         if (connection === 'open') {
-            console.log('✅ Conectado ao WhatsApp com sucesso!');
-            // Ativa o agendador (fechar e abrir grupo)
+            logger.info('Conectado ao WhatsApp');
             scheduleGroupMessages(sock);
+            scheduleBackups();
+            startScheduler(sock);
+            scheduleSupabaseBackup();
         }
 
         if (connection === 'close') {
@@ -216,6 +229,12 @@ async function startBot() {
 
         for (const message of messages) {
             if (!message.key.fromMe && message.message) {
+                // Ignorar mensagens do próprio bot
+                const botId = sock.user?.id;
+                const msgSender = message.key.participant || message.key.remoteJid;
+                if (msgSender === botId) {
+                    continue;
+                }
                 // Ignorar mensagens antigas (enviadas antes da inicialização do bot)
                 const messageTimestamp = message.messageTimestamp ? parseInt(message.messageTimestamp) * 1000 : Date.now();
                 if (messageTimestamp < botStartTime) {
@@ -223,35 +242,20 @@ async function startBot() {
                     continue;
                 }
                 
-                // Verifique se o bot deve atuar neste grupo (ALLOWED_GROUP_NAMES via .env e arquivo allowed_groups.json)
-                    const envAllowedList = (process.env.ALLOWED_GROUP_NAMES || '').split(',').map(s => s.trim()).filter(Boolean);
-                    const envAllowedUsers = (process.env.ALLOWED_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-                    let fileAllowedList = [];
-                    let fileAllowedUsers = [];
+                // Carregar grupos permitidos
+                    let ALLOWED_GROUP_NAMES = new Set();
                     try {
                         const allowedPath = path.join(__dirname, 'allowed_groups.json');
                         if (fs.existsSync(allowedPath)) {
                             const raw = fs.readFileSync(allowedPath, 'utf8');
                             const parsed = JSON.parse(raw);
-                            if (Array.isArray(parsed)) fileAllowedList = parsed;
+                            if (Array.isArray(parsed)) {
+                                ALLOWED_GROUP_NAMES = new Set(parsed.map(s => s.trim()).filter(Boolean));
+                            }
                         }
                     } catch (e) {
                         console.warn('⚠️ Falha ao ler allowed_groups.json:', e.message);
                     }
-
-                    try {
-                        const allowedUsersPath = path.join(__dirname, 'allowed_users.json');
-                        if (fs.existsSync(allowedUsersPath)) {
-                            const raw = fs.readFileSync(allowedUsersPath, 'utf8');
-                            const parsed = JSON.parse(raw);
-                            if (Array.isArray(parsed)) fileAllowedUsers = parsed;
-                        }
-                    } catch (e) {
-                        console.warn('⚠️ Falha ao ler allowed_users.json:', e.message);
-                    }
-
-                    const ALLOWED_GROUP_NAMES = new Set([...envAllowedList, ...fileAllowedList].map(s => s.trim()).filter(Boolean));
-                    const ALLOWED_USER_IDS = new Set([...envAllowedUsers, ...fileAllowedUsers].map(s => s.trim()).filter(Boolean));
                 // processar mensagens imediatamente
 
                 const senderId = message.key.participant || message.key.remoteJid;
@@ -333,112 +337,68 @@ async function startBot() {
 
                 const messageText = content?.text || content;
                 
-                // Ignorar anti-spam para comandos administrativos (inclui comandos de gerenciamento de autorização)
-                const isAdminCommand = messageText && typeof messageText === 'string' && (
-                    messageText.toLowerCase().includes('/removertermo') ||
-                    messageText.toLowerCase().includes('/removerlink') ||
-                    messageText.toLowerCase().includes('/bloqueartermo') ||
-                    messageText.toLowerCase().includes('/bloquearlink') ||
-                    messageText.toLowerCase().includes('/listatermos') ||
-                    messageText.toLowerCase().includes('/adicionargrupo') ||
-                    messageText.toLowerCase().includes('/removergrupo') ||
-                    messageText.toLowerCase().includes('/listargrupos') ||
-                    messageText.toLowerCase().includes('/adicionaradmin') ||
-                    messageText.toLowerCase().includes('/removeradmin') ||
-                    messageText.toLowerCase().includes('/listaradmins')
-                );
-
-                if (isAdminCommand) {
-                    console.log('⚙️ Comando administrativo detectado, pulando anti-spam');
-                    await handleGroupMessages(sock, message);
-                    continue;
-                }
-
-                // Processar todas as mensagens privadas
-                if (!isGroup) {
+                // Atendimento automático em PV
+                if (!isGroup && typeof messageText === 'string') {
                     console.log('📱 Processando mensagem privada de:', senderId);
-                }
-
-                // Verificar violações (anti-spam)
-                console.log('🔍 DEBUG: Verificando anti-spam...');
-                console.log('🔍 isGroup:', isGroup);
-                console.log('🔍 messageText:', messageText);
-                console.log('🔍 typeof:', typeof messageText);
-                
-                if (isGroup && typeof messageText === 'string') {
-                    // Verificar se o remetente é administrador — admins não devem ser barrados pelo sistema
-                    let isSenderAdmin = false;
-                    try {
-                        const groupMetadataForCheck = await sock.groupMetadata(groupId);
-                        const participant = groupMetadataForCheck.participants.find(p => p.id === senderId);
-                        if (participant && (participant.admin || participant.isAdmin)) {
-                            isSenderAdmin = true;
-                        }
-                    } catch (e) {
-                        console.warn('⚠️ Não foi possível obter metadata do grupo para checar admin:', e.message);
-                    }
-
-                    if (isSenderAdmin) {
-                        console.log('🔰 Remetente é administrador — pulando checagem de violação');
-                        await handleGroupMessages(sock, message);
+                    
+                    // Comando /valores - notifica atendentes
+                    if (messageText.toLowerCase().trim() === '/valores') {
+                        await sock.sendMessage(senderId, { text: '✅ Recebemos sua solicitação! Um atendente entrará em contato em breve.' });
+                        await notifyAttendants(sock, senderId, senderId.split('@')[0], getAdmins);
                         continue;
                     }
-
-                    console.log('🔍 Executando checkViolation...');
-                    const violation = checkViolation(messageText);
-                    console.log('🔍 Resultado:', violation);
                     
-                    if (violation.violated) {
-                        console.log('\n🚨 ═══════════════════════════════════════════════════════');
-                        console.log('🚨 VIOLAÇÃO DETECTADA!');
-                        console.log('🚨 Tipo:', violation.type);
-                        console.log('🚨 Usuário:', senderId);
-                        console.log('🚨 Mensagem:', messageText.substring(0, 50));
-                        console.log('🚨 ═══════════════════════════════════════════════════════\n');
+                    // Verifica se usuário confirmou interesse
+                    if (messageText.toLowerCase().trim() === 'sim' && isVerified(senderId)) {
+                        await sendAttendanceMessage(sock, senderId);
+                        continue;
+                    }
+                    
+                    // Detecta interesse e envia verificação
+                    if (detectClientInterest(messageText) && shouldSendAttendance(senderId)) {
+                        await sendVerificationMessage(sock, senderId);
+                        markAsVerified(senderId);
+                        continue;
+                    }
+                }
+
+                // Verificar violações em grupos
+                if (isGroup && typeof messageText === 'string') {
+                    // 1. Verificar palavras banidas
+                    const violation = checkViolation(messageText);
+                    
+                    // 2. Verificar com IA (se habilitada)
+                    let aiViolation = null;
+                    if (isAIEnabled() && messageText.length > 10) {
+                        const aiResult = await analyzeMessage(messageText);
+                        if (!aiResult.safe) {
+                            aiViolation = { violated: true, type: `IA: ${aiResult.reason}` };
+                        }
+                    }
+                    
+                    const finalViolation = violation.violated ? violation : aiViolation;
+                    
+                    if (finalViolation?.violated) {
+                        console.log('🚨 VIOLAÇÃO:', finalViolation.type);
                         
                         // Deletar mensagem
                         try {
-                            await sock.sendMessage(groupId, {
-                                delete: message.key
-                            });
-                            console.log('✅ ➜ Mensagem deletada com sucesso');
+                            await sock.sendMessage(groupId, { delete: message.key });
                         } catch (e) {
-                            console.error('❌ ➜ Erro ao deletar mensagem:', e.message);
+                            console.error('Erro ao deletar:', e.message);
                         }
                         
-                        // Obter informações do usuário
-                        const userNumber = senderId.split('@')[0];
-                        const violationData = {
-                            userName: userNumber,
-                            userId: senderId,
-                            userNumber: userNumber,
-                            dateTime: new Date().toLocaleString('pt-BR'),
-                            message: messageText
-                        };
-                        
                         // Notificar admins
-                        console.log('📢 ➜ Notificando administradores...');
-                        await notifyAdmins(sock, groupId, violationData);
-                        
-                        // Notificar usuário
-                        console.log('📩 ➜ Notificando usuário infrator...');
-                        await notifyUser(sock, senderId, groupId, messageText);
-                        
-                        // Registrar violação
-                        logViolation(violationData);
-                        incrementViolation(violation.type);
+                        await notifyAdmins(sock, groupId, {
+                            userId: senderId,
+                            message: messageText
+                        });
                         
                         // Sistema de strikes
-                        console.log('⚖️ ➜ Aplicando sistema de strikes...');
-                        const strikeCount = addStrike(senderId, { type: violation.type, message: messageText });
-                        console.log(`📊 ➜ Usuário agora tem ${strikeCount} strike(s)`);
+                        await addStrike(senderId, { type: finalViolation.type, message: messageText });
+                        await applyPunishment(sock, groupId, senderId);
                         
-                        // Aplicar punição baseada no número de strikes
-                        await applyPunishment(sock, groupId, senderId, strikeCount);
-                        
-                        console.log('✅ ➜ Violação processada completamente\n');
-                        
-                        continue; // Pular processamento normal
+                        continue;
                     }
                 }
 

@@ -1,24 +1,24 @@
-// rateLimiter.js
-const userRequests = new Map();
-const RATE_LIMIT_WINDOW = 5 * 60 * 1000; // 5 minutos
-const MAX_REQUESTS = 1; // 1 teste por usuário a cada 5 minutos
+// Rate limiter simples
+const userCooldowns = new Map();
 
-export function checkRateLimit(userId) {
+export function checkRateLimit(userId, cooldownMs = 3000) {
     const now = Date.now();
-    const userHistory = userRequests.get(userId) || [];
+    const lastUsed = userCooldowns.get(userId);
     
-    // Remove requests antigas
-    const validRequests = userHistory.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW);
-    
-    if (validRequests.length >= MAX_REQUESTS) {
-        const oldestRequest = Math.min(...validRequests);
-        const timeLeft = Math.ceil((RATE_LIMIT_WINDOW - (now - oldestRequest)) / 1000 / 60);
-        return { allowed: false, timeLeft };
+    if (lastUsed && (now - lastUsed) < cooldownMs) {
+        return { limited: true, remaining: Math.ceil((cooldownMs - (now - lastUsed)) / 1000) };
     }
     
-    // Adiciona nova request
-    validRequests.push(now);
-    userRequests.set(userId, validRequests);
-    
-    return { allowed: true };
+    userCooldowns.set(userId, now);
+    return { limited: false };
 }
+
+// Limpar cooldowns antigos a cada 5 minutos
+setInterval(() => {
+    const now = Date.now();
+    for (const [userId, timestamp] of userCooldowns.entries()) {
+        if (now - timestamp > 300000) {
+            userCooldowns.delete(userId);
+        }
+    }
+}, 300000);

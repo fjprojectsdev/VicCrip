@@ -24,7 +24,7 @@ Lembre-se: a convivência saudável depende de todos nós 💪
 
 ━━━━━━━━━━━━━━━━━
 
-🤖 Mensagem automática enviada por: iMavyBot
+🤖 Mensagem automática enviada por: iMavyAgent
 ━━━━━━━━━━━━━━━━━`;
         
         await sock.sendMessage(groupId, { 

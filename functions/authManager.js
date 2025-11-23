@@ -215,3 +215,10 @@ export async function getAdminStats() {
     };
 }
 
+// Obter lista de admins (para notificações)
+export async function getAdmins() {
+    const envAdmins = loadEnvAdmins();
+    const fileAdmins = await loadAdmins();
+    return [...envAdmins, ...fileAdmins].map(id => ({ user_id: id }));
+}
+

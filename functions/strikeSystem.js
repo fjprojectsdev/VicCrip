@@ -4,34 +4,23 @@
 // 3 strikes = Expulsão automática
 
 import { getUserName } from './userInfo.js';
+import * as db from './database.js';
 
-const userStrikes = new Map(); // userId -> { count, violations: [] }
-
-export function addStrike(userId, violation) {
-    if (!userStrikes.has(userId)) {
-        userStrikes.set(userId, { count: 0, violations: [] });
-    }
-    
-    const userData = userStrikes.get(userId);
-    userData.count++;
-    userData.violations.push({
-        type: violation.type,
-        message: violation.message,
-        date: new Date().toISOString()
-    });
-    
-    return userData.count;
+export async function addStrike(userId, violation) {
+    return await db.addStrike(userId, violation);
 }
 
-export function getStrikes(userId) {
-    return userStrikes.get(userId)?.count || 0;
+export async function getStrikes(userId) {
+    const data = await db.getStrikes(userId);
+    return data.count || 0;
 }
 
-export function resetStrikes(userId) {
-    userStrikes.delete(userId);
+export async function resetStrikes(userId) {
+    await db.resetStrikes(userId);
 }
 
-export async function applyPunishment(sock, groupId, userId, strikeCount) {
+export async function applyPunishment(sock, groupId, userId) {
+    const strikeCount = await getStrikes(userId);
     const userNumber = userId.split('@')[0];
     const userName = await getUserName(sock, userId, groupId);
     
@@ -105,26 +94,7 @@ As regras existem para manter a ordem do grupo!`;
     }
 }
 
-export function getViolationHistory(userId) {
-    return userStrikes.get(userId)?.violations || [];
-}
-
-// Limpar strikes antigos (opcional - após 7 dias)
-export function cleanOldStrikes() {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    
-    for (const [userId, userData] of userStrikes.entries()) {
-        const recentViolations = userData.violations.filter(v => 
-            new Date(v.date) > sevenDaysAgo
-        );
-        
-        if (recentViolations.length === 0) {
-            userStrikes.delete(userId);
-        } else {
-            userData.violations = recentViolations;
-            userData.count = recentViolations.length;
-        }
-    }
-    
-    console.log('🧹 Strikes antigos limpos');
+export async function getViolationHistory(userId) {
+    const data = await db.getStrikes(userId);
+    return data.violations || [];
 }
