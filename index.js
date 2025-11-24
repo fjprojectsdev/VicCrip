@@ -47,25 +47,13 @@ async function startBot() {
 
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
     
-    let version;
-    try {
-        const result = await Promise.race([
-            fetchLatestBaileysVersion(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-        ]);
-        version = result.version;
-        console.log('✅ Versão Baileys:', version.join('.'));
-    } catch {
-        version = [2, 3000, 1017531287];
-        console.log('⚠️ Usando versão padrão Baileys');
-    }
-
     const sock = makeWASocket({
-        version,
         auth: state,
         printQRInTerminal: false,
         syncFullHistory: false,
-        markOnlineOnConnect: false
+        markOnlineOnConnect: false,
+        browser: ['Chrome (Linux)', '', ''],
+        defaultQueryTimeoutMs: undefined
     });
 
     sock.ev.on('creds.update', saveCreds);

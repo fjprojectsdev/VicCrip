@@ -1,6 +1,6 @@
 // groupResponder.js
 import { getGroupStatus } from './groupStats.js';
-import { addBlockedWord, addBlockedLink, removeBlockedWord, removeBlockedLink, getCustomBlacklist } from './customBlacklist.js';
+
 import { addAllowedGroup, listAllowedGroups, removeAllowedGroup } from './adminCommands.js';
 import { addAdmin, removeAdmin, listAdmins, getAdminStats, isAuthorized } from './authManager.js';
 import { addBannedWord, removeBannedWord, listBannedWords } from './antiSpam.js';
@@ -585,67 +585,24 @@ Um membro foi banido do grupo:
                     });
                     await sock.sendMessage(senderId, { text: adminList });
                 }
-            } else if (normalizedText.includes('/bloqueartermo')) {
-                const termo = text.replace(/\/bloqueartermo/i, '').trim();
+            } else if (normalizedText.includes('/adicionartermo')) {
+                const termo = text.replace(/\/adicionartermo/i, '').trim();
                 if (termo) {
-                    const result = addBlockedWord(termo);
-                    await sock.sendMessage(groupId, { text: result.success ? `✅ Termo "${termo}" bloqueado!` : `⚠️ ${result.message}` });
+                    const result = addBannedWord(termo);
+                    await sock.sendMessage(groupId, { text: result.message });
                 } else {
-                    await sock.sendMessage(groupId, { text: '❌ Use: `/bloqueartermo palavra`' });
-                }
-            } else if (normalizedText.includes('/bloquearlink')) {
-                const link = text.replace(/\/bloquearlink/i, '').trim();
-                if (link) {
-                    const result = addBlockedLink(link);
-                    await sock.sendMessage(groupId, { text: result.success ? `✅ Link "${link}" bloqueado!` : `⚠️ ${result.message}` });
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ Use: `/bloquearlink dominio`' });
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/adicionartermo palavra ou frase`' });
                 }
             } else if (normalizedText.includes('/removertermo')) {
                 const termo = text.replace(/\/removertermo/i, '').trim();
                 if (termo) {
-                    const result = removeBlockedWord(termo);
-                    await sock.sendMessage(groupId, { text: result.success ? `✅ Termo "${termo}" removido!` : `⚠️ ${result.message}` });
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ Use: `/removertermo palavra`' });
-                }
-            } else if (normalizedText.includes('/removerlink')) {
-                const link = text.replace(/\/removerlink/i, '').trim();
-                if (link) {
-                    const result = removeBlockedLink(link);
-                    await sock.sendMessage(groupId, { text: result.success ? `✅ Link "${link}" removido!` : `⚠️ ${result.message}` });
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ Use: `/removerlink dominio`' });
-                }
-            } else if (normalizedText.includes('/listatermos')) {
-                const blacklist = getCustomBlacklist();
-                let listaMsg = `📝 *TERMOS E LINKS BLOQUEADOS*\n━━━━━━━━━━━━━━━━\n\n`;
-                if (blacklist.words.length > 0) {
-                    listaMsg += `🚫 *Palavras:*\n${blacklist.words.map((w, i) => `${i + 1}. ${w}`).join('\n')}\n\n`;
-                }
-                if (blacklist.links.length > 0) {
-                    listaMsg += `🔗 *Links:*\n${blacklist.links.map((l, i) => `${i + 1}. ${l}`).join('\n')}\n\n`;
-                }
-                listaMsg += `📊 *Total:* ${blacklist.words.length + blacklist.links.length} bloqueios`;
-                await sock.sendMessage(groupId, { text: listaMsg });
-            } else if (normalizedText.includes('/addtermo')) {
-                const termo = text.replace(/\/addtermo/i, '').trim();
-                if (termo) {
-                    const result = await addBannedWord(termo);
+                    const result = removeBannedWord(termo);
                     await sock.sendMessage(groupId, { text: result.message });
                 } else {
-                    await sock.sendMessage(groupId, { text: '❌ Use: `/addtermo palavra`' });
-                }
-            } else if (normalizedText.includes('/removertermo')) {
-                const termo = text.replace(/\/removertermo/i, '').trim();
-                if (termo) {
-                    const result = await removeBannedWord(termo);
-                    await sock.sendMessage(groupId, { text: result.message });
-                } else {
-                    await sock.sendMessage(groupId, { text: '❌ Use: `/removertermo palavra`' });
+                    await sock.sendMessage(groupId, { text: '❌ Use: `/removertermo palavra ou frase`' });
                 }
             } else if (normalizedText.includes('/listartermos')) {
-                const termos = await listBannedWords();
+                const termos = listBannedWords();
                 if (termos.length === 0) {
                     await sock.sendMessage(groupId, { text: 'ℹ️ Nenhum termo proibido cadastrado.' });
                 } else {
