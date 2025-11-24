@@ -17,14 +17,36 @@ function saveBannedWords(words) {
     fs.writeFileSync(BANNED_FILE, JSON.stringify(words, null, 2));
 }
 
+const CASINO_PATTERNS = [
+    /\b(cassino|casino|bet|aposta|jogo|ganhar dinheiro|renda extra|lucro garantido)\b/i,
+    /\b(fortune|tiger|mines|aviator|spaceman|double|crash|roleta)\b/i,
+    /\b(deposito|saque|pix|bônus|bonus|cadastr|link na bio|chama no pv)\b/i,
+    /\b(plataforma|sala vip|grupo vip|sinais|estrategia|hack|bug)\b/i,
+    /\b(ganhos|lucros|rendimento|investimento|oportunidade|renda)\b/i
+];
+
 export function checkViolation(text) {
     const bannedWords = loadBannedWords();
     const lowerText = text.toLowerCase();
     
+    // Verificar termos personalizados
     for (const term of bannedWords) {
         if (lowerText.includes(term.toLowerCase())) {
             return { violated: true, type: `termo proibido: "${term}"` };
         }
+    }
+    
+    // Detectar padrões de cassino
+    let casinoMatches = 0;
+    for (const pattern of CASINO_PATTERNS) {
+        if (pattern.test(text)) {
+            casinoMatches++;
+        }
+    }
+    
+    // Se encontrar 2 ou mais padrões, é spam de cassino
+    if (casinoMatches >= 2) {
+        return { violated: true, type: 'spam de cassino/apostas detectado' };
     }
     
     return { violated: false };
