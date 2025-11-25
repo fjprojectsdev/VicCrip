@@ -33,8 +33,23 @@ import { startAutoPromo } from './functions/autoPromo.js';
 console.log('🤖 IA de Moderação:', isAIEnabled() ? '✅ ATIVA (Groq)' : '❌ Desabilitada');
 console.log('💼 IA de Vendas:', isAISalesEnabled() ? '✅ ATIVA (Groq)' : '❌ Desabilitada');
 
+// Servidor HTTP para Railway/Render
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+    if (req.url === '/qr' && qrCodeData) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#000"><img src="${qrCodeData}" style="max-width:90%;max-height:90%"></body></html>`);
+    } else {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Bot WhatsApp iMavyAgent - Online\n\nAcesse /qr para ver o QR Code');
+    }
+}).listen(PORT, () => {
+    console.log(`🌐 Servidor HTTP rodando na porta ${PORT}`);
+});
+
 // Variável para armazenar o servidor HTTP temporário
 let qrServer = null;
+let qrCodeData = null;
 
 // Timestamp de inicialização do bot para ignorar mensagens antigas
 const botStartTime = Date.now();
@@ -74,10 +89,10 @@ async function startBot() {
             qrcode.generate(qr, { small: true });
             
             try {
-                const qrDataUrl = await QRCode.toDataURL(qr, { width: 600 });
-                console.log("\n🔗 LINK DO QR CODE (copie e cole no navegador):");
-                console.log(qrDataUrl);
-                console.log("\n");
+                qrCodeData = await QRCode.toDataURL(qr, { width: 600 });
+                console.log("\n🔗 QR CODE DISPONÍVEL EM:");
+                console.log(`http://localhost:${PORT}/qr`);
+                console.log("\n⚠️ O QR code fica disponível por 60 segundos\n");
             } catch (e) {
                 console.log("Erro ao gerar link QR:", e.message);
             }
