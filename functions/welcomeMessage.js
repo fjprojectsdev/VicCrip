@@ -4,8 +4,14 @@ export async function sendWelcomeMessage(sock, groupId, newMemberJid) {
         const groupMetadata = await sock.groupMetadata(groupId);
         const groupName = groupMetadata.subject;
         
+        // Extrair JID correto se for objeto
+        let memberJid = newMemberJid;
+        if (typeof newMemberJid === 'object' && newMemberJid.id) {
+            memberJid = newMemberJid.id;
+        }
+        
         // Obter nome do usuário
-        const userNumber = newMemberJid.split('@')[0];
+        const userNumber = memberJid.split('@')[0];
         
         const welcomeText = `🎉 Seja muito bem-vindo(a)! 🎉
 
@@ -29,7 +35,7 @@ Lembre-se: a convivência saudável depende de todos nós 💪
         
         await sock.sendMessage(groupId, { 
             text: welcomeText,
-            mentions: [newMemberJid]
+            mentions: [memberJid]
         });
         
         console.log(`✅ Mensagem de boas-vindas enviada para ${userNumber} no grupo ${groupName}`);

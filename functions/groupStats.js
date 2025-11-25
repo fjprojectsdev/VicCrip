@@ -66,7 +66,7 @@ export async function getGroupStatus(sock, groupId) {
 🚫 *Palavras bloqueadas:* ${stats.wordsBlocked}
 
 ━━━━━━━━━━━━━━━━━━━━━━━
-🤖 *Bot:* iMavyBot v2.0
+🤖 *Bot:* iMavyAgent
 ✅ *Status:* Online e protegendo o grupo!`;
 
         return statusMessage;

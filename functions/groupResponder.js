@@ -99,7 +99,7 @@ const RESPONSES = {
     'oi': '👋 Olá! Como posso ajudar?',
     'ajuda': '📋 Comandos disponíveis:\n- oi\n- ajuda\n- status\n- info\n- /fechar\n- /abrir\n- /fixar\n- /regras\n- /status\n- /comandos',
     'status': '✅ Bot online e funcionando!',
-    'info': '🤖 iMavyAgent v2.0 - Bot para WhatsApp'
+    'info': '🤖 iMavyAgent - Bot para WhatsApp'
 };
 
 if (!global.lembretesLoaded) {
@@ -178,7 +178,7 @@ export async function handleGroupMessages(sock, message) {
 * Bloqueio de links e palavras proibidas
 * Notificação automática aos admins
 ━━━━━━━━━━━━━━━━
-🤖 iMavyAgent v2.0 - Protegendo seu grupo 24/7`;
+🤖 iMavyAgent - Protegendo seu grupo 24/7`;
 
         await sock.sendMessage(senderId, { text: comandosMsg });
         return;
@@ -747,18 +747,19 @@ ${comando}
                 }
             } else if (normalizedText.startsWith('/leads')) {
                 const leads = getLeads();
-                if (leads.length === 0) {
+                if (!leads || !Array.isArray(leads) || leads.length === 0) {
                     await sock.sendMessage(groupId, { text: 'ℹ️ Nenhum lead registrado ainda.' });
                 } else {
                     let msg = `📊 *LEADS CAPTURADOS* (${leads.length})\n━━━━━━━━━━━━━━━━\n\n`;
-                    leads.slice(-10).reverse().forEach((lead, i) => {
+                    const leadsArray = Array.isArray(leads) ? leads : Object.values(leads);
+                    leadsArray.slice(-10).reverse().forEach((lead, i) => {
                         const date = new Date(lead.timestamp).toLocaleString('pt-BR');
                         msg += `${i + 1}. 📱 ${lead.phone}\n`;
                         msg += `   • Intent: ${lead.intent} (${lead.confidence}%)\n`;
                         msg += `   • Conversas: ${lead.conversationCount}\n`;
                         msg += `   • Data: ${date}\n\n`;
                     });
-                    if (leads.length > 10) msg += `\n... e mais ${leads.length - 10} leads`;
+                    if (leadsArray.length > 10) msg += `\n... e mais ${leadsArray.length - 10} leads`;
                     await sock.sendMessage(groupId, { text: msg });
                 }
             } else if (normalizedText.startsWith('/promo')) {
@@ -811,9 +812,6 @@ ${comando}
                     await sock.sendMessage(groupId, { text: help });
                 }
             } else if (normalizedText.startsWith('/comandos')) {
-                // Enviar lista apenas no PV
-                await sock.sendMessage(senderId, { text: '📱 *Lista de comandos enviada no privado!*\n\nVerifique suas mensagens privadas.' });
-                
                 const comandosMsg = `🤖 *LISTA COMPLETA DE COMANDOS* 🤖
 ━━━━━━━━━━━━━━━━
 👮 *COMANDOS ADMINISTRATIVOS:*
@@ -851,8 +849,11 @@ ${comando}
 * Notificação automática aos admins
 * Lembretes com encerramento automático
 ━━━━━━━━━━━━━━━━
-🤖 *iMavyAgent v2.0* - Protegendo seu grupo 24/7`;
+🤖 *iMavyAgent* - Protegendo seu grupo 24/7`;
                 await sock.sendMessage(senderId, { text: comandosMsg });
+                if (isGroup) {
+                    await sock.sendMessage(groupId, { text: '📱 *Lista de comandos enviada no privado!*' });
+                }
             }
         } catch (err) {
             console.error('❌ Erro ao executar comando:', err);

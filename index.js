@@ -41,7 +41,7 @@ const botStartTime = Date.now();
 
 async function startBot() {
     console.log("===============================================");
-    console.log("🚀 Iniciando iMavyBot - Respostas Pré-Definidas");
+    console.log("🚀 Iniciando iMavyAgent - Respostas Pré-Definidas");
     console.log("===============================================");
     console.log('🤖 IA Status: Groq (gratuito e rápido) para moderação automática!');
     console.log('⚙️ Sistema de lembretes avançado com encerramento automático ativo!');
@@ -306,7 +306,7 @@ async function startBot() {
                 }
                 
                 await sock.sendMessage(senderId, { 
-                    text: '👋 Olá! Sou o iMavyBot.\n\nDigite *sim* se tiver interesse em nossos serviços ou */valores* para falar com um atendente.' 
+                    text: '👋 Olá! Sou o iMavyAgent.\n\nDigite *sim* se tiver interesse em nossos serviços ou */valores* para falar com um atendente.' 
                 });
                 continue;
             }
