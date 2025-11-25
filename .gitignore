@@ -7,8 +7,11 @@ package-lock.json
 .env.local
 .env.production
 
-# Sessão WhatsApp (sensível)
-auth_info/
+# Sessão WhatsApp (sensível) - manter estrutura mas ignorar conteúdo
+auth_info/*
+!auth_info/.gitkeep
+auth_backup/
+.bot_status
 
 # Logs
 *.log

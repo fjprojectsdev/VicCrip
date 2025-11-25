@@ -29,6 +29,8 @@ import { scheduleSupabaseBackup } from './functions/supabaseBackup.js';
 import { analyzeMessage, isAIEnabled } from './functions/aiModeration.js';
 import { analyzeLeadIntent, isAISalesEnabled } from './functions/aiSales.js';
 import { startAutoPromo } from './functions/autoPromo.js';
+import { handleConnectionUpdate, resetReconnectAttempts } from './functions/connectionManager.js';
+import { startHealthMonitor, startSessionBackup, setConnected, updateHeartbeat, restoreSessionFromBackup } from './keepalive.js';
 
 console.log('🤖 IA de Moderação:', isAIEnabled() ? '✅ ATIVA (Groq)' : '❌ Desabilitada');
 console.log('💼 IA de Vendas:', isAISalesEnabled() ? '✅ ATIVA (Groq)' : '❌ Desabilitada');
@@ -62,16 +64,29 @@ async function startBot() {
     console.log('⚙️ Sistema de lembretes avançado com encerramento automático ativo!');
 
     await ensureCoreConfigFiles();
+    
+    // Tentar restaurar sessão do backup se necessário
+    restoreSessionFromBackup();
 
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+    const { version } = await fetchLatestBaileysVersion();
     
     const sock = makeWASocket({
         auth: state,
+        version,
         printQRInTerminal: false,
         syncFullHistory: false,
-        markOnlineOnConnect: false,
-        browser: ['Chrome (Linux)', '', ''],
-        defaultQueryTimeoutMs: undefined
+        markOnlineOnConnect: true,
+        browser: ['iMavyAgent', 'Chrome', '10.0'],
+        defaultQueryTimeoutMs: undefined,
+        keepAliveIntervalMs: 30000,
+        connectTimeoutMs: 60000,
+        qrTimeout: 60000,
+        retryRequestDelayMs: 250,
+        maxMsgRetryCount: 5,
+        getMessage: async (key) => {
+            return { conversation: '' };
+        }
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -231,22 +246,44 @@ async function startBot() {
 
         if (connection === 'open') {
             logger.info('Conectado ao WhatsApp');
-            scheduleGroupMessages(sock);
-            scheduleBackups();
-            startScheduler(sock);
-            scheduleSupabaseBackup();
-            startAutoPromo(sock);
+            resetReconnectAttempts();
+            setConnected(true);
+            
+            // Iniciar serviços apenas uma vez após conexão bem-sucedida
+            try {
+                scheduleGroupMessages(sock);
+                scheduleBackups();
+                startScheduler(sock);
+                scheduleSupabaseBackup();
+                startAutoPromo(sock);
+                startHealthMonitor();
+                startSessionBackup();
+                console.log('✅ Todos os serviços iniciados com sucesso');
+            } catch (e) {
+                console.error('❌ Erro ao iniciar serviços:', e.message);
+            }
         }
 
         if (connection === 'close') {
             const reason = lastDisconnect?.error?.output?.statusCode;
-            console.log('Motivo do fechamento:', reason);
-
+            setConnected(false);
+            
             if (reason === DisconnectReason.loggedOut) {
-                console.log('⚠️ Sessão desconectada. Escaneie o QR novamente.');
+                console.log('⚠️ Sessão desconectada manualmente. Deletando credenciais antigas...');
+                try {
+                    const authPath = path.join(__dirname, 'auth_info');
+                    if (fs.existsSync(authPath)) {
+                        fs.rmSync(authPath, { recursive: true, force: true });
+                        console.log('🗑️ Credenciais antigas removidas');
+                    }
+                } catch (e) {
+                    console.error('Erro ao remover credenciais:', e.message);
+                }
+                console.log('🔄 Reiniciando para gerar novo QR code...');
+                setTimeout(() => startBot(), 3000);
             } else {
-                console.log('🔄 Reconectando em 5 segundos...');
-                setTimeout(() => startBot(), 5000);
+                // Usar gerenciador de conexão para reconexões automáticas
+                handleConnectionUpdate(update, startBot);
             }
         }
     });
@@ -254,6 +291,9 @@ async function startBot() {
     // Evento de mensagens recebidas
     sock.ev.on('messages.upsert', async (msgUpsert) => {
         const messages = msgUpsert.messages;
+        
+        // Atualizar heartbeat a cada mensagem processada
+        updateHeartbeat();
 
         for (const message of messages) {
             // ========== 1. FILTROS INICIAIS (Fast Return) ==========
