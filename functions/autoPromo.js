@@ -1,5 +1,10 @@
 // Sistema de Auto-Promoção
-import * as db from './database.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROMO_FILE = path.join(__dirname, '..', 'promo_config.json');
 
 const DEFAULT_MESSAGES = [
         `🤖 *iMavyBot - Automação Profissional para WhatsApp*
@@ -45,72 +50,87 @@ _iMavyBot - Seu grupo no piloto automático_`,
 _Automação profissional para grupos_`
 ];
 
-export async function addPromoGroup(groupId, groupName) {
-    return await db.addPromoGroup(groupId, groupName);
-}
-
-export async function removePromoGroup(groupId) {
-    return await db.removePromoGroup(groupId);
-}
-
-export async function listPromoGroups() {
-    return await db.getPromoGroups();
-}
-
-export async function setPromoInterval(hours) {
-    return await db.setPromoConfig('intervalHours', hours);
-}
-
-export async function togglePromo(enabled) {
-    return await db.setPromoConfig('enabled', enabled);
-}
-
-export async function getPromoConfig() {
-    return await db.getPromoConfig();
-}
-
-export async function getRandomPromoMessage() {
-    const messages = await db.getPromoMessages();
-    if (messages.length === 0) return DEFAULT_MESSAGES[0];
-    return messages[Math.floor(Math.random() * messages.length)].message;
-}
-
-export async function startAutoPromo(sock) {
-    const config = await getPromoConfig();
-    
-    if (!config.enabled) {
-        console.log('🚫 Auto-promoção desabilitada');
-        return;
+function loadConfig() {
+    if (!fs.existsSync(PROMO_FILE)) {
+        const defaultConfig = { enabled: false, intervalHours: 6, groups: [], messages: DEFAULT_MESSAGES };
+        fs.writeFileSync(PROMO_FILE, JSON.stringify(defaultConfig, null, 2));
+        return defaultConfig;
     }
+    return JSON.parse(fs.readFileSync(PROMO_FILE, 'utf8'));
+}
 
-    const groups = await listPromoGroups();
-    console.log(`📢 Auto-promoção ativada: a cada ${config.intervalHours}h em ${groups.length} grupos`);
+function saveConfig(config) {
+    fs.writeFileSync(PROMO_FILE, JSON.stringify(config, null, 2));
+}
 
-    setInterval(async () => {
-        const currentConfig = await getPromoConfig();
+export function addPromoGroup(groupId, groupName) {
+    const config = loadConfig();
+    if (!config.groups.find(g => g.id === groupId)) {
+        config.groups.push({ id: groupId, name: groupName, lastPromo: null });
+        saveConfig(config);
+    }
+}
+
+export function removePromoGroup(groupId) {
+    const config = loadConfig();
+    config.groups = config.groups.filter(g => g.id !== groupId);
+    saveConfig(config);
+}
+
+export function listPromoGroups() {
+    return loadConfig().groups;
+}
+
+export function setPromoInterval(hours) {
+    const config = loadConfig();
+    config.intervalHours = hours;
+    saveConfig(config);
+}
+
+export function togglePromo(enabled) {
+    const config = loadConfig();
+    config.enabled = enabled;
+    saveConfig(config);
+}
+
+export function getPromoConfig() {
+    return loadConfig();
+}
+
+export function getRandomPromoMessage() {
+    const config = loadConfig();
+    const messages = config.messages || DEFAULT_MESSAGES;
+    return messages[Math.floor(Math.random() * messages.length)];
+}
+
+export function startAutoPromo(sock) {
+    const config = getPromoConfig();
+    console.log(`📢 Auto-promoção ativada: a cada ${config.intervalHours}h em ${config.groups.length} grupos`);
+
+    setInterval(() => {
+        const currentConfig = getPromoConfig();
         if (!currentConfig.enabled) return;
 
-        const currentGroups = await listPromoGroups();
         const intervalMs = currentConfig.intervalHours * 60 * 60 * 1000;
 
-        for (const group of currentGroups) {
+        for (const group of currentConfig.groups) {
             try {
                 const now = Date.now();
-                const lastPromo = group.last_promo ? new Date(group.last_promo).getTime() : 0;
+                const lastPromo = group.lastPromo || 0;
                 
                 if (now - lastPromo < intervalMs) continue;
 
-                const randomMessage = await getRandomPromoMessage();
+                const randomMessage = getRandomPromoMessage();
                 
-                await sock.sendMessage(group.group_id, { text: randomMessage });
-                await db.updatePromoGroupLastSent(group.group_id);
+                sock.sendMessage(group.id, { text: randomMessage });
                 
-                console.log(`📢 Anúncio enviado para: ${group.group_name}`);
+                group.lastPromo = now;
+                saveConfig(currentConfig);
                 
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                console.log(`📢 Anúncio enviado para: ${group.name}`);
             } catch (e) {
-                console.error(`Erro ao enviar promo para ${group.group_name}:`, e.message);
+                console.error(`Erro ao enviar promo para ${group.name}:`, e.message);
             }
         }
-    }, 60 * 60 * 1000);
+    }, 60 * 1000);
 }

@@ -1,0 +1,334 @@
+BRIEF COMPLETO - iMavyAgent Bot WhatsApp
+
+=== INFORMAÇÕES GERAIS ===
+
+Nome: iMavyAgent
+Slogan: "Automação Inteligente para Grupos do WhatsApp"
+Descrição Curta: Bot de WhatsApp com IA integrada para moderação automática, atendimento de vendas e gestão completa de grupos.
+
+=== PÚBLICO-ALVO ===
+
+- Donos de grupos de vendas
+- Administradores de comunidades
+- Empresas que usam WhatsApp
+- Grupos corporativos
+- Comunidades educacionais
+
+=== PROBLEMA QUE RESOLVE ===
+
+1. Spam e conteúdo inadequado em grupos
+2. Trabalho manual de moderação
+3. Perda de leads por demora no atendimento
+4. Dificuldade em gerenciar múltiplos grupos
+5. Falta de automação em tarefas repetitivas
+
+=== SOLUÇÃO ===
+
+Bot completo com IA que automatiza moderação, qualifica leads, gerencia grupos e executa comandos administrativos 24/7.
+
+=== FUNCIONALIDADES PRINCIPAIS ===
+
+1. IA DE MODERAÇÃO
+- Detecta spam automaticamente
+- Identifica conteúdo impróprio
+- Sistema de 3 strikes antes de expulsar
+- Notifica admins sobre violações
+- Aprende com variações de spam
+
+2. IA DE VENDAS
+- Qualifica leads em tempo real
+- Responde perguntas sobre produtos/serviços
+- Detecta intenção de compra
+- Notifica atendentes sobre leads quentes
+- Salva histórico de conversas
+
+3. AUTOMAÇÃO
+- Abertura/fechamento por horário
+- Lembretes com repetição automática
+- Boas-vindas personalizadas
+- Backup diário automático
+- Auto-promoção em grupos
+
+4. ADMINISTRAÇÃO
+- 40+ comandos administrativos
+- Gerenciamento de membros
+- Controle de permissões
+- Agendamento de mensagens
+- Dashboard web
+
+5. MODO DESENVOLVEDOR
+- Crie comandos conversando com IA
+- Integração automática
+- Execução de código remoto
+- Logs em tempo real
+
+=== DIFERENCIAIS ===
+
+✓ Única solução com IA dupla (moderação + vendas)
+✓ Modo desenvolvedor com IA para criar comandos
+✓ Dashboard web moderno
+✓ Open source e gratuito
+✓ Deploy em 5 minutos
+✓ Sem mensalidade (hospedagem gratuita)
+✓ Suporte a múltiplos grupos
+✓ Documentação completa em português
+
+=== TECNOLOGIAS ===
+
+- Node.js + Baileys (WhatsApp Web API)
+- Groq AI (IA gratuita e rápida)
+- Supabase (banco de dados opcional)
+- Express.js (dashboard)
+- Deploy: Render/Railway (gratuito)
+
+=== COMANDOS MAIS USADOS ===
+
+/fechar - Fecha o grupo
+/abrir - Abre o grupo
+/banir @user - Expulsa membro
+/lembrete + msg 1h 24h - Cria lembrete automático
+/testia - Testa IA de vendas
+!sorteio - Inicia sorteio interativo
+/dev - Ativa modo desenvolvedor
+
+=== ESTATÍSTICAS ===
+
+- 40+ comandos disponíveis
+- 2 IAs integradas
+- 0 custo de hospedagem
+- Deploy em 5 minutos
+- Suporte a grupos ilimitados
+- Backup automático diário
+
+=== PLANOS SUGERIDOS ===
+
+GRATUITO (Self-hosted)
+- Código open source
+- Todas as funcionalidades
+- Deploy gratuito no Render
+- Suporte via documentação
+
+PROFISSIONAL - R$ 297/mês
+- Hospedagem gerenciada
+- Suporte prioritário
+- Configuração incluída
+- Atualizações automáticas
+
+PREMIUM - R$ 597/mês
+- Tudo do Profissional
+- Customizações exclusivas
+- Suporte 24/7
+- Treinamento da equipe
+- Integração com CRM
+
+=== BENEFÍCIOS POR SEGMENTO ===
+
+GRUPOS DE VENDAS:
+- Qualifica leads automaticamente
+- Responde dúvidas 24/7
+- Notifica sobre clientes interessados
+- Modera spam de concorrentes
+
+COMUNIDADES:
+- Sorteios interativos
+- Boas-vindas automáticas
+- Moderação de conteúdo
+- Lembretes de eventos
+
+EMPRESAS:
+- Horário de funcionamento automático
+- Controle de acesso
+- Backup de dados
+- Relatórios de atividade
+
+EDUCAÇÃO:
+- Lembretes de aulas
+- Moderação de linguagem
+- Controle de spam
+- Avisos programados
+
+=== CALL TO ACTION ===
+
+Principal: "Comece Grátis Agora"
+Secundário: "Ver Demonstração"
+Terciário: "Falar com Especialista"
+
+=== PROVA SOCIAL ===
+
+"Reduziu spam em 95% no nosso grupo de vendas"
+"IA qualifica 50+ leads por dia automaticamente"
+"Economizamos 10h/semana em moderação"
+"Criamos 5 comandos customizados em minutos"
+
+=== FAQ ESSENCIAL ===
+
+Q: É realmente gratuito?
+A: Sim! Código open source + hospedagem gratuita no Render.
+
+Q: Preciso saber programar?
+A: Não! Instalação simples e comandos prontos.
+
+Q: Funciona em quantos grupos?
+A: Ilimitado! Sem restrições.
+
+Q: A IA é paga?
+A: Não! Usamos Groq que é gratuito (30 req/min).
+
+Q: Posso customizar?
+A: Sim! Código aberto + modo desenvolvedor com IA.
+
+Q: Tem suporte?
+A: Sim! Documentação completa + comunidade.
+
+=== ESTRUTURA DO SITE ===
+
+SEÇÃO 1 - HERO
+Título: "Automatize Seu Grupo do WhatsApp com IA"
+Subtítulo: "Moderação inteligente, atendimento de vendas e 40+ comandos em um único bot"
+CTA: "Começar Grátis" + "Ver Demo"
+Imagem: Dashboard ou bot em ação
+
+SEÇÃO 2 - PROBLEMA
+"Cansado de spam, trabalho manual e perda de vendas?"
+- Spam constante
+- Moderação manual
+- Leads perdidos
+- Gestão complexa
+
+SEÇÃO 3 - SOLUÇÃO
+"iMavyAgent resolve tudo isso com IA"
+- IA modera automaticamente
+- Qualifica leads 24/7
+- 40+ comandos prontos
+- Dashboard completo
+
+SEÇÃO 4 - FUNCIONALIDADES
+Cards com ícones:
+🤖 IA Dupla
+🛡️ Anti-Spam
+⚡ 40+ Comandos
+📊 Dashboard
+🔄 Backup Auto
+🎲 Interativo
+
+SEÇÃO 5 - COMO FUNCIONA
+Passo 1: Deploy gratuito (5 min)
+Passo 2: Escaneie QR Code
+Passo 3: Configure grupos
+Passo 4: Pronto! Bot ativo 24/7
+
+SEÇÃO 6 - DIFERENCIAIS
+Comparação com concorrentes
+Por que escolher iMavyAgent
+
+SEÇÃO 7 - CASOS DE USO
+Vendas | Comunidades | Empresas | Educação
+
+SEÇÃO 8 - DEPOIMENTOS
+3-4 depoimentos com foto e nome
+
+SEÇÃO 9 - DEMONSTRAÇÃO
+Vídeo ou GIF do bot funcionando
+
+SEÇÃO 10 - PLANOS
+Gratuito | Profissional | Premium
+
+SEÇÃO 11 - FAQ
+6-8 perguntas frequentes
+
+SEÇÃO 12 - CTA FINAL
+"Transforme Seu Grupo Agora"
+Botão grande + garantia
+
+RODAPÉ
+Links | Redes sociais | Contato | GitHub
+
+=== CORES SUGERIDAS ===
+
+Primária: #00D9FF (Azul ciano - tecnologia)
+Secundária: #7C3AED (Roxo - IA)
+Sucesso: #10B981 (Verde)
+Alerta: #F59E0B (Laranja)
+Erro: #EF4444 (Vermelho)
+Fundo: #0F172A (Azul escuro)
+Texto: #F8FAFC (Branco suave)
+
+=== TIPOGRAFIA ===
+
+Títulos: Inter Bold ou Poppins Bold
+Corpo: Inter Regular ou Roboto
+Código: Fira Code ou JetBrains Mono
+
+=== ÍCONES ===
+
+Usar: Lucide Icons ou Heroicons
+Estilo: Outline para clareza
+
+=== ANIMAÇÕES ===
+
+- Fade in ao scroll
+- Hover nos botões
+- Typing effect no hero
+- Counter nos números
+- Smooth scroll
+
+=== RESPONSIVIDADE ===
+
+Mobile first
+Breakpoints: 640px, 768px, 1024px, 1280px
+
+=== SEO ===
+
+Título: "iMavyAgent - Bot WhatsApp com IA | Moderação e Vendas Automáticas"
+Descrição: "Bot de WhatsApp com IA para moderação automática, qualificação de leads e gestão de grupos. Open source, gratuito e fácil de instalar."
+Keywords: bot whatsapp, automação whatsapp, ia whatsapp, moderação grupo, bot vendas
+
+=== LINKS IMPORTANTES ===
+
+GitHub: https://github.com/fjprojectsdev/jh
+Documentação: README.md no repositório
+Deploy: Guia no DEPLOY_RENDER.md
+Segurança: SECURITY.md
+
+=== CONTATO ===
+
+Email: [seu-email]
+WhatsApp: [seu-whatsapp]
+GitHub: https://github.com/fjprojectsdev
+Discord/Telegram: [se tiver]
+
+=== EXTRAS PARA O SITE ===
+
+- Badge "Open Source"
+- Badge "Gratuito"
+- Badge "IA Integrada"
+- Contador de downloads/usuários
+- Estrelas do GitHub
+- Botão "Star on GitHub"
+- Link para demo ao vivo
+- Vídeo tutorial
+- Changelog/Atualizações
+- Blog com tutoriais
+
+=== PROMPT PARA IA CRIAR O SITE ===
+
+"Crie um site moderno e profissional para o iMavyAgent, um bot de WhatsApp com IA integrada. O site deve ter design dark mode com azul ciano (#00D9FF) e roxo (#7C3AED), ser responsivo, ter animações suaves e seguir as melhores práticas de UX. Inclua seções: Hero com CTA, Problema/Solução, Funcionalidades (cards), Como Funciona (steps), Diferenciais, Casos de Uso, Depoimentos, Demonstração (vídeo), Planos (3 cards), FAQ (accordion) e CTA Final. Use Tailwind CSS, componentes modernos, ícones Lucide, e otimize para SEO. O tom deve ser profissional mas acessível, destacando que é gratuito, open source e fácil de usar."
+
+=== TEXTOS PRONTOS ===
+
+HERO:
+"Automatize Seu Grupo do WhatsApp com Inteligência Artificial"
+"Moderação automática, atendimento de vendas e 40+ comandos em um único bot. Open source e gratuito."
+
+PROBLEMA:
+"Seu grupo sofre com spam, trabalho manual de moderação e perda de vendas por demora no atendimento?"
+
+SOLUÇÃO:
+"iMavyAgent usa IA para moderar automaticamente, qualificar leads 24/7 e executar comandos administrativos sem intervenção humana."
+
+CTA:
+"Comece Grátis em 5 Minutos"
+"Sem cartão de crédito. Sem mensalidade. Código aberto."
+
+GARANTIA:
+"100% Open Source. Deploy gratuito. Suporte via documentação completa."
