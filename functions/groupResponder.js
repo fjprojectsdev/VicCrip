@@ -135,50 +135,61 @@ export async function handleGroupMessages(sock, message) {
     // Funcionalidade de resposta automática desabilitada
     
     if (!isGroup && text.toLowerCase().includes('/comandos')) {
-        const comandosMsg = `🤖 LISTA COMPLETA DE COMANDOS 🤖
+        const comandosMsg = `🤖 *LISTA COMPLETA DE COMANDOS* 🤖
 ━━━━━━━━━━━━━━━━
-👮 COMANDOS ADMINISTRATIVOS:
+👮 *COMANDOS ADMINISTRATIVOS:*
 
 * 🔒 /fechar - Fecha o grupo
 * 🔓 /abrir - Abre o grupo
-* 📌 /fixar [mensagem]
-* 🚫 /banir @membro [motivo]
-* 🚫 /bloqueartermo [palavra]
-* 🔗 /bloquearlink [dominio]
-* ✏️ /removertermo [palavra]
-* 🔓 /removerlink [dominio]
-* 📝 /listatermos
-* 🛠️ /adicionargrupo [Nome do Grupo | JID]
-* 🗑️ /removergrupo [Nome do Grupo | JID]
-* 📋 /listargrupos - Lista grupos e usuários permitidos
+* 📌 /fixar [mensagem] - Fixa mensagem
+* 🚫 /banir @membro - Bane membro
+* 📢 /aviso [mensagem] - Menciona todos
+* ⏰ /agendar HH:MM mensagem - Agenda mensagem
+* 📢 /lembrete + mensagem 1h 24h - Lembrete automático
+* 🛑 /stoplembrete - Para lembrete
+* 🚫 /adicionartermo [palavra] - Bloqueia palavra
+* ✏️ /removertermo [palavra] - Remove palavra
+* 📝 /listartermos - Lista palavras bloqueadas
+* 🛠️ /adicionargrupo [nome] - Adiciona grupo
+* 🗑️ /removergrupo [nome] - Remove grupo
+* 📋 /listargrupos - Lista grupos permitidos
+* 👮 /adicionaradmin @usuario - Adiciona admin
+* 🗑️ /removeradmin @usuario - Remove admin
+* 📋 /listaradmins - Lista admins
+* 👑 /promover @usuario - Promove a admin
+* 👤 /rebaixar @usuario - Rebaixa admin
+* 🔧 /manutencao on/off - Modo manutenção
 ━━━━━━━━━━━━━━━━
-📊 COMANDOS DE INFORMAÇÃO:
+📊 *COMANDOS DE INFORMAÇÃO:*
 
-* 📊 /status - Status e estatísticas do grupo
-* 📋 /regras - Exibe regras do grupo
-* 📱 /comandos - Lista todos os comandos
+* 📊 /status - Status e estatísticas
+* 📋 /regras - Regras do grupo
+* 🔗 /link - Link do grupo
+* 🕒 /hora - Horário do bot
+* 📱 /comandos - Lista de comandos
 ━━━━━━━━━━━━━━━━
-🤖 COMANDOS DO BOT:
+🤖 *COMANDOS ESPECIAIS:*
 
-* 👋 bot oi - Saudação
-* ❓ bot ajuda - Ajuda rápida
-* ✅ bot status - Status do bot
-* ℹ️ bot info - Informações do bot
-    
-* 🛠️ /adicionargrupo [Nome do Grupo | JID]
-* 🗑️ /removergrupo [Nome do Grupo | JID]
-* 📋 /listargrupos
-* 👮 /adicionaradmin @usuario
-* 🗑️ /removeradmin @usuario
-* 📋 /listaradmins
+* 🧪 /testia [mensagem] - Testa IA
+* 📊 /leads - Lista leads capturados
+
+📢 *AUTO-PROMOÇÃO:*
+* /promo add - Adiciona grupo
+* /promo remove - Remove grupo
+* /promo list - Lista grupos
+* /promo interval [horas] - Define intervalo
+* /promo on - Ativa
+* /promo off - Desativa
+* /promo config - Ver configuração
 ━━━━━━━━━━━━━━━━
-🔒 Sistema de Segurança Ativo
-* Anti-spam automático
+🔒 *Sistema de Segurança Ativo*
+* Anti-spam automático com IA
 * Sistema de strikes (3 = expulsão)
-* Bloqueio de links e palavras proibidas
+* Bloqueio de palavras proibidas
 * Notificação automática aos admins
+* Lembretes com encerramento automático
 ━━━━━━━━━━━━━━━━
-🤖 iMavyAgent - Protegendo seu grupo 24/7`;
+🤖 *iMavyAgent* - Protegendo seu grupo 24/7`;
 
         await sock.sendMessage(senderId, { text: comandosMsg });
         return;
@@ -818,34 +829,51 @@ ${comando}
 
 * 🔒 /fechar - Fecha o grupo
 * 🔓 /abrir - Abre o grupo
-* 📌 /fixar [mensagem]
-* 🚫 /banir @membro
+* 📌 /fixar [mensagem] - Fixa mensagem
+* 🚫 /banir @membro - Bane membro
 * 📢 /aviso [mensagem] - Menciona todos
-* 📢 /lembrete + mensagem 1h 24h
+* ⏰ /agendar HH:MM mensagem - Agenda mensagem
+* 📢 /lembrete + mensagem 1h 24h - Lembrete automático
 * 🛑 /stoplembrete - Para lembrete
-* 🚫 /bloqueartermo [palavra]
-* 🔗 /bloquearlink [dominio]
-* ✏️ /removertermo [palavra]
-* 🔓 /removerlink [dominio]
-* 📝 /listatermos
-* 🛠️ /adicionargrupo [nome]
-* 🗑️ /removergrupo [nome]
-* 📋 /listargrupos
-* 👮 /adicionaradmin @usuario
-* 🗑️ /removeradmin @usuario
-* 📋 /listaradmins
+* 🚫 /adicionartermo [palavra] - Bloqueia palavra
+* ✏️ /removertermo [palavra] - Remove palavra
+* 📝 /listartermos - Lista palavras bloqueadas
+* 🛠️ /adicionargrupo [nome] - Adiciona grupo
+* 🗑️ /removergrupo [nome] - Remove grupo
+* 📋 /listargrupos - Lista grupos permitidos
+* 👮 /adicionaradmin @usuario - Adiciona admin
+* 🗑️ /removeradmin @usuario - Remove admin
+* 📋 /listaradmins - Lista admins
+* 👑 /promover @usuario - Promove a admin
+* 👤 /rebaixar @usuario - Rebaixa admin
+* 🔧 /manutencao on/off - Modo manutenção
 ━━━━━━━━━━━━━━━━
 📊 *COMANDOS DE INFORMAÇÃO:*
 
-* 📊 /status - Status do grupo
+* 📊 /status - Status e estatísticas
 * 📋 /regras - Regras do grupo
 * 🔗 /link - Link do grupo
+* 🕒 /hora - Horário do bot
 * 📱 /comandos - Lista de comandos
+━━━━━━━━━━━━━━━━
+🤖 *COMANDOS ESPECIAIS:*
+
+* 🧪 /testia [mensagem] - Testa IA
+* 📊 /leads - Lista leads capturados
+
+📢 *AUTO-PROMOÇÃO:*
+* /promo add - Adiciona grupo
+* /promo remove - Remove grupo
+* /promo list - Lista grupos
+* /promo interval [horas] - Define intervalo
+* /promo on - Ativa
+* /promo off - Desativa
+* /promo config - Ver configuração
 ━━━━━━━━━━━━━━━━
 🔒 *Sistema de Segurança Ativo*
 * Anti-spam automático com IA
 * Sistema de strikes (3 = expulsão)
-* Bloqueio de links e palavras
+* Bloqueio de palavras proibidas
 * Notificação automática aos admins
 * Lembretes com encerramento automático
 ━━━━━━━━━━━━━━━━

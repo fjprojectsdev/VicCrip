@@ -31,6 +31,7 @@ import { analyzeLeadIntent, isAISalesEnabled } from './functions/aiSales.js';
 import { startAutoPromo } from './functions/autoPromo.js';
 import { handleConnectionUpdate, resetReconnectAttempts } from './functions/connectionManager.js';
 import { startHealthMonitor, startSessionBackup, setConnected, updateHeartbeat, restoreSessionFromBackup } from './keepalive.js';
+import { handleDevCommand, isDev, isDevModeActive, handleDevConversation } from './functions/devCommands.js';
 
 console.log('🤖 IA de Moderação:', isAIEnabled() ? '✅ ATIVA (Groq)' : '❌ Desabilitada');
 console.log('💼 IA de Vendas:', isAISalesEnabled() ? '✅ ATIVA (Groq)' : '❌ Desabilitada');
@@ -316,7 +317,26 @@ async function startBot() {
 
             // ========== 3. FLUXO PRIVADO (VENDAS) ==========
             if (!isGroup) {
+                // Modo desenvolvedor ativo
+                if (isDevModeActive(senderId)) {
+                    console.log('🛠️ MODO DEV ATIVO:', senderId);
+                    
+                    // Comandos rápidos no modo dev
+                    if (messageText.startsWith('/dev')) {
+                        await handleDevCommand(sock, message, messageText);
+                        continue;
+                    }
+                    
+                    // Conversa natural com IA
+                    await handleDevConversation(sock, senderId, messageText);
+                    continue;
+                }
+                
                 console.log('📱 FLUXO VENDAS:', senderId);
+                
+                // Delay humanizado (2-5 segundos)
+                const humanDelay = Math.floor(Math.random() * 3000) + 2000;
+                await new Promise(resolve => setTimeout(resolve, humanDelay));
                 
                 // Comando direto para atendente
                 if (messageText.toLowerCase().trim() === '/valores') {
@@ -348,20 +368,9 @@ async function startBot() {
                     }
                 }
                 
-                // Fallback se IA estiver desabilitada
-                if (messageText.toLowerCase().trim() === 'sim' && isVerified(senderId)) {
-                    await sendAttendanceMessage(sock, senderId);
-                    continue;
-                }
-                
-                if (detectClientInterest(messageText) && shouldSendAttendance(senderId)) {
-                    await sendVerificationMessage(sock, senderId);
-                    markAsVerified(senderId);
-                    continue;
-                }
-                
+                // Fallback: resposta padrão
                 await sock.sendMessage(senderId, { 
-                    text: '👋 Olá! Sou o iMavyAgent.\n\nDigite *sim* se tiver interesse em nossos serviços ou */valores* para falar com um atendente.' 
+                    text: '👋 Olá! Sou o iMavyAgent.\n\nDigite */valores* para falar com um atendente.' 
                 });
                 continue;
             }
@@ -399,6 +408,13 @@ async function startBot() {
             // 4.1. COMANDOS (prioridade máxima)
             if (messageText.startsWith('/')) {
                 console.log('⚡ COMANDO detectado:', messageText.split(' ')[0]);
+                
+                // Comando DEV (funciona em grupo e privado)
+                if (messageText.toLowerCase().startsWith('/dev')) {
+                    await handleDevCommand(sock, message, messageText);
+                    continue;
+                }
+                
                 await handleGroupMessages(sock, message);
                 continue;
             }
