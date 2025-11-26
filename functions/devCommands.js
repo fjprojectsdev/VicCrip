@@ -18,8 +18,13 @@ const devModeActive = new Map();
 const conversationHistory = new Map();
 
 export function isDev(userId) {
-    const cleanId = userId.replace('@s.whatsapp.net', '');
-    return DEV_IDS.some(devId => cleanId.includes(devId.trim()));
+    const cleanId = userId.replace('@s.whatsapp.net', '').replace('@lid', '');
+    console.log('🔍 DEBUG DEV - userId:', userId);
+    console.log('🔍 DEBUG DEV - cleanId:', cleanId);
+    console.log('🔍 DEBUG DEV - DEV_IDS:', DEV_IDS);
+    const isAuthorized = DEV_IDS.some(devId => cleanId.includes(devId.trim()));
+    console.log('🔍 DEBUG DEV - isAuthorized:', isAuthorized);
+    return isAuthorized;
 }
 
 export function isDevModeActive(userId) {

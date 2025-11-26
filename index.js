@@ -318,6 +318,8 @@ async function startBot() {
             // ========== 3. FLUXO PRIVADO (VENDAS) ==========
             if (!isGroup) {
                 console.log('📱 FLUXO PRIVADO:', senderId);
+                console.log('🤖 IA Vendas Status:', isAISalesEnabled());
+                console.log('📝 Mensagem:', messageText);
                 
                 // Comando /dev (ativar modo desenvolvedor)
                 if (messageText.startsWith('/dev')) {
@@ -346,15 +348,17 @@ async function startBot() {
                 
                 // IA para qualificar lead
                 if (isAISalesEnabled()) {
+                    console.log('✅ Iniciando análise de IA...');
                     try {
                         const aiResponse = await Promise.race([
                             analyzeLeadIntent(messageText, senderId),
                             new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), 5000))
                         ]);
                         
-                        console.log('🤖 IA:', aiResponse.intent, `(${aiResponse.confidence}%)`);
+                        console.log('💼 IA Resposta:', JSON.stringify(aiResponse));
                         
                         await sock.sendMessage(senderId, { text: aiResponse.response });
+                        console.log('✅ Mensagem enviada com sucesso');
                         
                         // Se cliente demonstrou interesse alto, notificar atendentes
                         if (aiResponse.needsHuman || (aiResponse.intent === 'interested' && aiResponse.confidence > 70)) {
@@ -363,8 +367,11 @@ async function startBot() {
                         
                         continue;
                     } catch (e) {
-                        console.warn('⚠️ IA vendas falhou:', e.message);
+                        console.error('❌ IA vendas ERRO:', e.message);
+                        console.error('Stack:', e.stack);
                     }
+                } else {
+                    console.log('⚠️ IA DESABILITADA - usando fallback');
                 }
                 
                 // Fallback: resposta padrão
