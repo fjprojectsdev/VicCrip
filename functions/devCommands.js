@@ -138,44 +138,85 @@ export async function handleDevConversation(sock, senderId, messageText) {
     try {
         const history = getHistory(senderId);
         
-        const systemPrompt = `Você é um assistente de desenvolvimento expert em Node.js, Baileys (WhatsApp bot) e JavaScript.
+        const systemPrompt = `Você é um assistente de desenvolvimento EXPERT em Node.js, Baileys (WhatsApp bot) e JavaScript.
 
-Seu papel:
-- Conversar naturalmente com o desenvolvedor
-- Entender suas ideias e necessidades
-- Criar código funcional quando solicitado
-- Dar conselhos técnicos
-- Ser prestativo e eficiente
+🎯 PROCESSO DE DESENVOLVIMENTO:
 
-Quando o dev pedir para criar algo, retorne JSON:
+1. ANÁLISE: Entenda COMPLETAMENTE o que o dev quer
+2. PLANEJAMENTO: Pense na lógica ANTES de codificar
+3. VALIDAÇÃO: Pergunte se não tiver certeza
+4. IMPLEMENTAÇÃO: Código limpo e funcional
+
+📋 REGRAS DE LÓGICA:
+
+- SEMPRE analise requisitos antes de codificar
+- Identifique estados necessários (Map, Set, Array)
+- Pense em edge cases (erros, validações)
+- Use estruturas de dados apropriadas
+- Considere concorrência (múltiplos grupos)
+
+🔧 QUANDO CRIAR CÓDIGO:
+
+SÓ crie código se:
+✅ Entendeu 100% o requisito
+✅ Sabe qual estrutura usar
+✅ Tem lógica clara em mente
+
+Se NÃO tiver certeza:
+❌ NÃO crie código
+✅ Faça perguntas (type: "question")
+✅ Sugira alternativas (type: "advice")
+
+📦 FORMATO DE RESPOSTA JSON:
+
 {
   "type": "code" | "advice" | "question",
-  "response": "sua resposta em texto",
-  "commandName": "nome do comando sem espaços (ex: sorteio, enquete)",
-  "commandTrigger": "gatilho do comando (ex: !sorteio, /enquete)",
-  "code": "código completo (se type=code)",
-  "usage": "exemplo de uso (se type=code)",
-  "isPublic": true/false (se qualquer um pode usar ou só admins)
+  "response": "explicação clara",
+  "logic": "descrição da lógica (se type=code)",
+  "commandName": "nome sem espaços",
+  "commandTrigger": "!comando ou /comando",
+  "code": "código completo",
+  "usage": "exemplo de uso",
+  "isPublic": true/false
 }
 
-Se for apenas conversa/conselho, use type="advice" ou "question".
+💻 ESTRUTURA OBRIGATÓRIA:
 
-ESTRUTURA OBRIGATÓRIA do código:
-export async function handleNomeDoComando(sock, message, text) {
+// Estados globais (se necessário)
+const estadoComando = new Map();
+
+export async function handleNome(sock, message, text) {
   const chatId = message.key.remoteJid;
   const senderId = message.key.participant || message.key.remoteJid;
+  const args = text.split(' ').slice(1);
   
-  // Lógica do comando aqui
+  // Validações
+  if (!args[0]) {
+    await sock.sendMessage(chatId, { text: '❌ Uso: !comando <param>' });
+    return;
+  }
   
-  await sock.sendMessage(chatId, { text: 'resposta' });
+  // Lógica principal
+  try {
+    // seu código
+    await sock.sendMessage(chatId, { text: '✅ Sucesso' });
+  } catch (e) {
+    await sock.sendMessage(chatId, { text: '❌ Erro: ' + e.message });
+  }
 }
 
-IMPORTANTE:
-- Use await para operações assíncronas
-- Sempre extraia chatId e senderId
-- Crie lógica completa e funcional
-- Use Map() para armazenar estados temporários
-- Mencione usuários com mentions: [userId]`;
+🎓 EXEMPLOS DE BOA LÓGICA:
+
+1. Sorteio: Map para grupos ativos, setTimeout para finalizar
+2. Enquete: Map com {chatId: {opcoes, votos}}
+3. Quiz: Map com {chatId: {pergunta, resposta, participantes}}
+
+⚠️ NUNCA:
+- Código sem validação
+- Lógica incompleta
+- Variáveis globais sem Map/Set
+- Código sem try/catch
+- Funções sem await`;
 
         const messages = [
             { role: "system", content: systemPrompt },
@@ -196,7 +237,24 @@ IMPORTANTE:
         addToHistory(senderId, 'user', messageText);
         addToHistory(senderId, 'assistant', result.response);
         
+        // Se for pergunta, apenas responder
+        if (result.type === 'question') {
+            await sock.sendMessage(chatId, { text: `❓ ${result.response}` });
+            return;
+        }
+        
+        // Se for conselho, apenas responder
+        if (result.type === 'advice') {
+            await sock.sendMessage(chatId, { text: `💡 ${result.response}` });
+            return;
+        }
+        
+        // Se for código, validar lógica
         if (result.type === 'code') {
+            if (!result.logic || result.logic.length < 20) {
+                await sock.sendMessage(chatId, { text: '❌ Erro: Lógica não foi planejada adequadamente. Tente novamente.' });
+                return;
+            }
             const fileName = `${result.commandName}.js`;
             const customDir = path.join(__dirname, 'custom');
             
@@ -210,7 +268,7 @@ IMPORTANTE:
             // Auto-integrar ao groupResponder
             await integrateCommand(result.commandName, result.commandTrigger, result.isPublic);
             
-            const msg = `${result.response}\n\n✅ Comando criado e integrado!\n📁 Arquivo: functions/custom/${fileName}\n🔑 Gatilho: ${result.commandTrigger}\n👥 Público: ${result.isPublic ? 'Sim' : 'Só admins'}\n💬 Uso: ${result.usage}\n\n✅ Já está funcionando! Teste agora.`;
+            const msg = `${result.response}\n\n🧠 *LÓGICA IMPLEMENTADA:*\n${result.logic}\n\n✅ *COMANDO CRIADO!*\n📁 Arquivo: functions/custom/${fileName}\n🔑 Gatilho: ${result.commandTrigger}\n👥 Público: ${result.isPublic ? 'Sim' : 'Só admins'}\n💬 Uso: ${result.usage}\n\n✅ Integrado e pronto para usar!`;
             await sock.sendMessage(chatId, { text: msg });
         } else {
             await sock.sendMessage(chatId, { text: result.response });
