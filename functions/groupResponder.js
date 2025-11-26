@@ -303,8 +303,12 @@ export async function handleGroupMessages(sock, message) {
     
     // Comando !sorteio (público) - apenas em grupos
     if (normalizedText.startsWith('!sorteio') || normalizedText.startsWith('!participar')) {
+        console.log('🎲 SORTEIO DETECTADO - isGroup:', isGroup);
         if (isGroup) {
+            console.log('✅ Executando handleSorteio...');
             await handleSorteio(sock, message, text);
+        } else {
+            console.log('❌ Comando ignorado - não é grupo');
         }
         return;
     }

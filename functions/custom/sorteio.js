@@ -1,9 +1,11 @@
 const sorteiosAtivos = new Map();
 
 export async function handleSorteio(sock, message, text) {
+  console.log('🎲 handleSorteio EXECUTADO - text:', text);
   const chatId = message.key.remoteJid;
   const senderId = message.key.participant || message.key.remoteJid;
   const normalizedText = text.toLowerCase();
+  console.log('🎲 chatId:', chatId, 'senderId:', senderId);
   
   // Participar do sorteio
   if (normalizedText.includes('!participar')) {
