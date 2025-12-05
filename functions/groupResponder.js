@@ -96,7 +96,7 @@ async function mentionAllInvisible(sock, from, messageText) {
 // Respostas prÃ©-definidas
 const RESPONSES = {
     'oi': 'ðŸ‘‹ OlÃ¡! Como posso ajudar?',
-    'ajuda': 'ðŸ“‹ Comandos disponÃ­veis:\n- oi\n- ajuda\n- status\n- info\n- /fechar\n- /abrir\n- /fixar\n- /regras\n- /status\n- /comandos',
+    'ajuda': 'ðŸ“‹ Comandos disponÃ­veis:\n- oi\n- ajuda\n- status\n- info\n- /fechar\n- /abrir\n- /regras\n- /status\n- /comandos',
     'status': 'âœ… Bot online e funcionando!',
     'info': 'ðŸ¤– iMavyAgent - Bot para WhatsApp'
 };
@@ -300,7 +300,7 @@ export async function handleGroupMessages(sock, message) {
     }
     
 // Comandos administrativos
-    if (normalizedText.includes('/fechar') || normalizedText.includes('/abrir') || normalizedText.includes('/fixar') || normalizedText.includes('/aviso') || normalizedText.includes('/regras') || normalizedText.includes('/descricao') || normalizedText.includes('/status') || normalizedText.includes('/stats') || normalizedText.includes('/hora') || normalizedText.includes('/banir') || normalizedText.includes('/link') || normalizedText.includes('/promover') || normalizedText.includes('/rebaixar') || normalizedText.includes('/agendar') || normalizedText.includes('/manutencao') || normalizedText.includes('/lembrete') || normalizedText.includes('/stoplembrete') || normalizedText.includes('/comandos') || normalizedText.includes('/adicionargrupo') || normalizedText.includes('/removergrupo') || normalizedText.includes('/listargrupos') || normalizedText.includes('/adicionaradmin') || normalizedText.includes('/removeradmin') || normalizedText.includes('/listaradmins') || normalizedText.includes('/addtermo') || normalizedText.includes('/removertermo') || normalizedText.includes('/listartermos') ) {
+    if (normalizedText.includes('/fechar') || normalizedText.includes('/abrir') || normalizedText.includes('/aviso') || normalizedText.includes('/regras') || normalizedText.includes('/descricao') || normalizedText.includes('/status') || normalizedText.includes('/stats') || normalizedText.includes('/hora') || normalizedText.includes('/banir') || normalizedText.includes('/link') || normalizedText.includes('/promover') || normalizedText.includes('/rebaixar') || normalizedText.includes('/agendar') || normalizedText.includes('/manutencao') || normalizedText.includes('/lembrete') || normalizedText.includes('/stoplembrete') || normalizedText.includes('/comandos') || normalizedText.includes('/adicionargrupo') || normalizedText.includes('/removergrupo') || normalizedText.includes('/listargrupos') || normalizedText.includes('/adicionaradmin') || normalizedText.includes('/removeradmin') || normalizedText.includes('/listaradmins') || normalizedText.includes('/addtermo') || normalizedText.includes('/removertermo') || normalizedText.includes('/listartermos') ) {
         
         const cooldown = parseInt(process.env.COMMAND_COOLDOWN || '3') * 1000;
         const rateCheck = checkRateLimit(senderId, cooldown);
@@ -413,23 +413,6 @@ Vamos com foco, energia positiva e boas conversas ðŸ’¬âœ¨`;
                 const hora = now.toLocaleTimeString('pt-BR');
                 const data = now.toLocaleDateString('pt-BR');
                 await sock.sendMessage(groupId, { text: `ðŸ•’ *HorÃ¡rio do Bot:*\n\nðŸ“… Data: ${data}\nâ° Hora: ${hora}` });
-            } else if (normalizedText.startsWith('/fixar')) {
-                const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-                let messageToPin = text.replace(/\/fixar/i, '').trim();
-                if (messageToPin) {
-                    const agora = new Date();
-                    const data = agora.toLocaleDateString('pt-BR');
-                    const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                    const pinnedMsg = `ðŸ“Œ MENSAGEM IMPORTANTE ðŸ“Œ
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-${messageToPin}
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
-| ðŸ“… DATA: ${data}
-| ðŸ•“HORA: ${hora}`;
-                    await sock.sendMessage(groupId, { text: pinnedMsg, mentions: mentionedJids });
-                } else {
-                    await sock.sendMessage(groupId, { text: 'âŒ *Uso incorreto!*\n\nðŸ“ Use: `/fixar sua mensagem aqui`' });
-                }
             } else if (normalizedText.startsWith('/aviso')) {
                 const avisoMsg = text.replace(/\/aviso/i, '').trim();
                 if (avisoMsg) {
@@ -811,5 +794,7 @@ ${comando}
 
     // Modo de respostas inteligentes desabilitado - apenas comandos
 }
+
+
 
 
