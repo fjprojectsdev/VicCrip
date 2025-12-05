@@ -1,4 +1,4 @@
-﻿// groupResponder.js
+// groupResponder.js
 import { getGroupStatus } from './groupStats.js';
 
 import { addAllowedGroup, listAllowedGroups, removeAllowedGroup } from './adminCommands.js';
@@ -794,6 +794,7 @@ ${comando}
 
     // Modo de respostas inteligentes desabilitado - apenas comandos
 }
+
 
 
 
